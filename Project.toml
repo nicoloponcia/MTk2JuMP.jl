@@ -1,0 +1,13 @@
+name = "MTk2JuMP"
+uuid = "01bfc454-84e7-4aa9-b211-868c162aee58"
+authors = ["nicolo-poncia"]
+version = "1.0.0-DEV"
+
+[compat]
+julia = "1.12"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
