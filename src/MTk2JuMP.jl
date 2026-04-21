@@ -1,7 +1,6 @@
 module MTk2JuMP
 
-function summ(a=1,b=2)
-    return a + b
-end
+include("IF.jl")
+include("MTk.jl")
 
 end

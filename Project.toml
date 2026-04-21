@@ -1,9 +1,27 @@
 name = "MTk2JuMP"
 uuid = "01bfc454-84e7-4aa9-b211-868c162aee58"
-authors = ["nicolo-poncia"]
 version = "1.0.0-DEV"
+authors = ["nicolo-poncia"]
+
+[deps]
+DataInterpolations = "82cc6244-b520-54b8-b5a6-8a565e85f1d0"
+DataInterpolationsND = "4f1ef021-621a-47a5-ac8a-95402a2d1ea8"
+JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+ModelingToolkit = "961ee093-0014-501f-94e3-6117800e7a78"
+ModelingToolkitStandardLibrary = "16a59e39-deab-5bd0-87e4-056b12336739"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
 
 [compat]
+DataInterpolations = "8.10.0"
+DataInterpolationsND = "0.1.2"
+JuMP = "1.30.0"
+LinearAlgebra = "1.12.0"
+ModelingToolkit = "11.21.0"
+ModelingToolkitStandardLibrary = "2.27.0"
+Revise = "3.14.2"
+Symbolics = "7.19.0"
 julia = "1.12"
 
 [extras]

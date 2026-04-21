@@ -1,0 +1,137 @@
+INTERFACE MIGRATION SUMMARY
+Package: MTk2JuMP
+Date: 2026-04-21
+Owner: <fill>
+
+Purpose
+This document records all interface-level changes introduced by runtime-focused refactors,
+including API/function renames, call signature changes, data structure redesigns, and
+required downstream updates in dependent projects.
+
+How To Use This File
+1. Fill every section whenever a refactor changes externally used behavior.
+2. Keep examples executable and aligned with current package exports.
+3. If a change is intentionally breaking, include exact migration steps.
+
+===============================================================================
+A. Release Context
+===============================================================================
+- Version/tag before changes:
+- Version/tag after changes:
+- Branch/commit range:
+- Runtime goal (primary KPI):
+- Secondary metrics tracked (optional):
+
+===============================================================================
+B. Public API Changes
+===============================================================================
+For each public symbol changed, add one record.
+
+Record template:
+- Symbol type: function | type | constant | module export
+- Old name:
+- New name:
+- Breaking: yes | no
+- Reason for change (runtime/type stability/data layout/debloat):
+- Mathematical robustness note (what was preserved):
+- Old signature:
+- New signature:
+- Return type change (if any):
+- Default argument change (if any):
+
+===============================================================================
+C. Call-Site Migration Guide (for other projects)
+===============================================================================
+List old-to-new call transformations as direct recipes.
+
+Example record:
+- Old call:
+  result = old_solver(model, data; tol=1e-8)
+- New call:
+  result = solve_model(model, prepared_data; atol=1e-8)
+- Required pre-step:
+  prepared_data = prepare_data(data)
+- Notes:
+  Tolerances renamed for consistency; behavior preserved within validation bounds.
+
+Add all impacted call patterns below:
+1)
+- Old call:
+- New call:
+- Required pre-step:
+- Notes:
+
+2)
+- Old call:
+- New call:
+- Required pre-step:
+- Notes:
+
+3)
+- Old call:
+- New call:
+- Required pre-step:
+- Notes:
+
+===============================================================================
+D. Data Structure Migration
+===============================================================================
+Document changes in structs/containers used by consumers.
+
+Record template:
+- Old type/layout:
+- New type/layout:
+- Field mapping:
+  old_field_1 -> new_field_1
+  old_field_2 -> new_field_2
+- Constructor migration:
+- Serialization/deserialization impact:
+- Performance reason for redesign:
+
+===============================================================================
+E. Deprecated/Removed Paths and Future-Enhancement Comments
+===============================================================================
+When code was removed aggressively, record whether future-intent comments existed.
+
+Record template:
+- Removed path/module/function:
+- Comment indicating future/alternate use existed: yes | no
+- Action taken:
+  kept as extension hook | moved to compatibility module | fully removed with rationale
+- Rationale:
+- Reintroduction strategy (if needed):
+
+===============================================================================
+F. Validation of Mathematical Robustness
+===============================================================================
+- Invariants tested:
+- Domain-specific edge cases tested:
+- Numerical tolerance policy:
+- Any known numerical drift and why acceptable:
+
+===============================================================================
+G. Compatibility Shim (Optional but Recommended)
+===============================================================================
+If temporary wrappers are provided, document them.
+
+- Shim symbol:
+- Maps old API to new API how:
+- Planned removal version/date:
+- Warning message shown to users:
+
+===============================================================================
+H. Downstream Project Update Checklist
+===============================================================================
+- Update package version constraint.
+- Replace renamed symbols.
+- Update changed function signatures.
+- Adapt data construction to new types/layouts.
+- Re-run project tests and numerical validations.
+- Re-benchmark critical workflows after migration.
+
+===============================================================================
+I. Maintainer Sign-Off
+===============================================================================
+- Migration summary reviewed by:
+- Date:
+- Confirmed complete: yes | no
