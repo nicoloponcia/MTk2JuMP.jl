@@ -1,5 +1,7 @@
 module MTk2JuMP
 
-# Write your package code here.
+function summ(a=1,b=2)
+    return a + b
+end
 
 end
