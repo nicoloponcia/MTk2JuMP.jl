@@ -12,6 +12,7 @@ disable-model-invocation: false
 - New runnable examples in `examples/` (never in `src/`).
 - Task-oriented example scripts and/or markdown walkthroughs.
 - API usage coverage for primary workflows and common edge usage patterns.
+- Well-commented examples that explain both mathematical meaning and code implementation choices.
 - A completed authoring checklist in [EXAMPLE_AUTHORING_TEMPLATE.md](./assets/EXAMPLE_AUTHORING_TEMPLATE.md).
 
 ## When To Use
@@ -38,10 +39,13 @@ disable-model-invocation: false
 - Use clear filenames (`examples/quickstart_<feature>.jl`, `examples/advanced_<feature>.jl`).
 - Keep examples executable and deterministic.
 - Prefer concise scripts with explicit imports and setup.
+- Add substantial inline comments in examples to teach users what each step does.
+- Explain both mathematical concepts (equations, invariants, interpretation) and coding mechanics (APIs, data flow, plotting/output handling).
 
 3. Explain How To Run
 - Include run commands and expected output characteristics.
 - Note input assumptions and numerical tolerance notes when relevant.
+- Explain how to interpret key outputs and plots.
 
 4. Validate Against Current API
 - Ensure examples match current exported names and signatures.
@@ -60,6 +64,7 @@ disable-model-invocation: false
 - Examples are runnable and aligned with current package API.
 - Quickstart and practical workflows are both covered.
 - Known assumptions and expected behavior are documented.
+- Comments are intentionally educational, covering math and implementation details clearly.
 
 ## Example Prompts
 - Create quickstart and advanced examples for IF build pipeline and place them in examples/.

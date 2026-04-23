@@ -12,12 +12,16 @@
 - Purpose:
 - Inputs:
 - Expected output behavior:
+- Mathematical explanation comments included: yes/no
+- Coding/API explanation comments included: yes/no
 
 2. File:
 - Path (must be under examples/):
 - Purpose:
 - Inputs:
 - Expected output behavior:
+- Mathematical explanation comments included: yes/no
+- Coding/API explanation comments included: yes/no
 
 ## Run Instructions
 - Command(s):
@@ -33,6 +37,11 @@
 - Core workflow covered:
 - Edge/pitfall workflow covered:
 - Remaining gaps:
+
+## Commenting Quality
+- Key equations or concepts explained inline:
+- Implementation flow explained inline:
+- Output/plot interpretation explained inline:
 
 ## Validation
 - Examples executed successfully: yes/no
