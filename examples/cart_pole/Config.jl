@@ -1,40 +1,29 @@
 function get_nlp_config()
-    Ipopt = (
+    return MTk2JuMP.IF.build.OCPSettings(
+        Ipopt = MTk2JuMP.IF.build.IpoptConfig(
         tol = 1e-6,
         max_iter = 10000,
-        hsllib_path = "C:\\ProgramData\\HSL\\bin\\libhsl.dll",
-        linear_solver = "ma27",
+        # hsllib_path = "C:\\ProgramData\\HSL\\bin\\libhsl.dll",
+        hsllib_path = "",
+        # linear_solver = "ma27",
+        linear_solver = "mumps",
         warm_start = true,
-    )
-
-    Discretization = (
-        N = 50,
+        ),
+        Discretization = MTk2JuMP.IF.build.DiscretizationConfig(
+        N = 100,
         tspan = (0.0, 5.0),
-    )
-
-    Collocation = (
+        ),
+        Integration = MTk2JuMP.IF.build.IntegrationConfig(
+        int_method = :Coll,
+        Collocation = MTk2JuMP.IF.build.CollocationConfig(
         poly = :LGR,
         order = 3,
-    )
-
-
-    Integration = (
-        int_method = :Coll,
-        Collocation = Collocation,
-    )
-
-    Params = (
+        ),
+        ),
+        Params = MTk2JuMP.IF.build.ParamsConfig(
         mode = :sparse, # :sparse or :single
+        )
     )
-
-    # Derived scales
-    NLPConfig = (
-        Ipopt = Ipopt,
-        Discretization = Discretization,
-        Integration = Integration,
-        Params = Params
-    )
-return NLPConfig
 end
 
 NLPConfig = get_nlp_config()

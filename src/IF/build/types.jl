@@ -10,15 +10,53 @@ mutable struct CollSettings_
 end
 CollSettings(; poly::Symbol=:LGR, order::Int=3) = CollSettings_(poly, order, Float64[], Float64[], zeros(Float64,0,0), Float64[])
 
-mutable struct OCPSettings_
+mutable struct IpoptConfig_
+    tol::Float64
+    max_iter::Int
+    hsllib_path::String
+    linear_solver::String
+    warm_start::Bool
+end
+IpoptConfig(; tol::Float64=1e-6, max_iter::Int=10_000, hsllib_path::String="", linear_solver::String="ma27", warm_start::Bool=true) =
+    IpoptConfig_(tol, max_iter, hsllib_path, linear_solver, warm_start)
+
+mutable struct DiscretizationConfig_
     N::Int
     tspan::Tuple{Float64,Float64}
-    di::Float64
-    int_method::Symbol
-    Coll_set::CollSettings_
-    Params_mode::Symbol
 end
-OCPSettings() = OCPSettings_(0, (0.0,0.0), 0.0, :None, CollSettings(), :None)
+DiscretizationConfig(; N::Int=0, tspan::Tuple{Float64,Float64}=(0.0, 0.0)) = DiscretizationConfig_(N, tspan)
+
+CollocationConfig(; poly::Symbol=:LGR, order::Int=3) = CollSettings(poly=poly, order=order)
+
+mutable struct IntegrationConfig_
+    int_method::Symbol
+    Collocation::CollSettings_
+end
+IntegrationConfig(; int_method::Symbol=:None, Collocation::CollSettings_=CollocationConfig()) = IntegrationConfig_(int_method, Collocation)
+
+mutable struct ParamsConfig_
+    mode::Symbol
+end
+ParamsConfig(; mode::Symbol=:None) = ParamsConfig_(mode)
+
+mutable struct OCPSettings_
+    Ipopt::IpoptConfig_
+    Discretization::DiscretizationConfig_
+    Integration::IntegrationConfig_
+    Params::ParamsConfig_
+end
+OCPSettings(; Ipopt::IpoptConfig_=IpoptConfig(), Discretization::DiscretizationConfig_=DiscretizationConfig(), Integration::IntegrationConfig_=IntegrationConfig(), Params::ParamsConfig_=ParamsConfig()) =
+    OCPSettings_(Ipopt, Discretization, Integration, Params)
+
+Base.getproperty(settings::OCPSettings_, name::Symbol) = name === :N ? getfield(settings, :Discretization).N :
+    name === :tspan ? getfield(settings, :Discretization).tspan :
+    name === :di ? (getfield(settings, :Discretization).N > 1 ? (getfield(settings, :Discretization).tspan[2] - getfield(settings, :Discretization).tspan[1]) / (getfield(settings, :Discretization).N - 1) : 0.0) :
+    name === :int_method ? getfield(settings, :Integration).int_method :
+    name === :Coll_set ? getfield(settings, :Integration).Collocation :
+    name === :Params_mode ? getfield(settings, :Params).mode :
+    getfield(settings, name)
+
+Base.propertynames(::OCPSettings_, private::Bool=false) = private ? fieldnames(OCPSettings_) : (:Ipopt, :Discretization, :Integration, :Params, :N, :tspan, :di, :int_method, :Coll_set, :Params_mode)
 
 mutable struct gDyn_
     g::Array{JuMP.ConstraintRef}

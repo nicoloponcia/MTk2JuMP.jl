@@ -11,8 +11,10 @@ OCPI.model = Model(Ipopt.Optimizer; add_bridges=false)
 
 # load configs
 include("Config.jl")
-MTk2JuMP.IF.build.setup_optimizer!(OCPI.model, NLPConfig)
-MTk2JuMP.IF.build.set_settings!(OCPI, NLPConfig)
+MTk2JuMP.IF.build.setup_problem!(OCPI, NLPConfig)
+
+# create time vector (simple for time-based discretization)
+t = LinRange(OCPI.settings.tspan[1], OCPI.settings.tspan[2], OCPI.settings.N)
 
 # Load MTk model
 include("model.jl")
@@ -28,7 +30,6 @@ MTk2JuMP.IF.build.set_scales!(OCPI, SB.Scales)
 
 # create decision variables and set initial guess
 x0 = zeros(Float64, OCPI.meta.nx, OCPI.settings.N)
-t = LinRange(OCPI.settings.tspan[1], OCPI.settings.tspan[2], OCPI.settings.N)
 u0 = Matrix{Float64}(undef, OCPI.meta.nu, OCPI.settings.N-1)
 # u0[1, :] = SB.Bounds.uU.F .* sin.(2*pi*t[1:end-1] * 10 ./ OCPI.settings.tspan[2])
 u0[1, :] .= 0.0
@@ -89,32 +90,36 @@ MTk2JuMP.IF.build.collect_all_results!(OCPI)
 MTk2JuMP.IF.build.collect_solver_info!(OCPI)
 
 
+# Plot output trajectories
+fmt = (linewidth=2, legend=false, grid=true, xlabel="Time \$t\$ [s]")
+# Construct individual subplots with mathematical LaTeX labels
+p1 = plot(t, OCPI.res.x[:x]; ylabel="Position \$x\$", fmt...)
+p2 = plot(t, OCPI.res.x[:v]; ylabel="Velocity \$v\$", fmt...)
+p3 = plot(t, OCPI.res.x[:θ]; ylabel="Angle \$\\theta\$", fmt...)
+p4 = plot(t, OCPI.res.x[:ω]; ylabel="Ang. Vel. \$\\omega\$", fmt...)
+p5 = plot(t, OCPI.res.x[:a]; ylabel="Acceleration \$a\$", fmt...)
 
-plot(OCPI.res.x[:x])
+# Control and output variables (note the distinct time vector indices)
+p6 = plot(t[1:end-1], OCPI.res.u[:F]; ylabel="Force \$F\$", color=:darkred, fmt...)
+p7 = plot(t[1:end-1], OCPI.res.y[:P]; ylabel="Power \$P\$", color=:darkgreen, fmt...)
 
-plot(OCPI.res.x[:v])
-
-plot(OCPI.res.x[:θ])
-
-plot(OCPI.res.x[:ω])
-
-plot(OCPI.res.x[:a])
-
-plot(OCPI.res.u[:F])
-
-plot(OCPI.res.y[:P])
-
-
-
-plot(value.(OCPI.gDyn.rhs[:,:,1]'))
-
-
+# Assemble all subplots into a master figure
+plot(p1, p2, p3, p4, p5, p6, p7, 
+     layout = (2, 4), size = (900, 450), dpi = 200,
+     plot_title = "Optimal Control Trajectories",
+     left_margin = 5Plots.mm, bottom_margin = 5Plots.mm)
 
 
+# plot constraint for scaling check
+p1 = plot(t[1:end-1], value.(OCPI.gDyn.rhs[:,:,1]'); title="Scaled Dynamics RHS", fmt...)
+p2 = plot(t[1:end-1], value.(OCPI.gDyn.lhs[:,:,1]'); title="Scaled Dynamics LHS", fmt...)
+plot(p1, p2, layout=(2,1), size=(800,400))
 
 
 
-function generate_cartpole_animation(t_vec, x_vec, θ_vec, F_vec; l=1.0, k_f=0.5, skip_steps=1)
+# Create animation
+
+function generate_cartpole_animation(t_vec, x_vec, θ_vec, F_vec; l=1.0, k_f=0.1, skip_steps=1)
     # Determine plot limits based on data range
     x_min = minimum(x_vec) - l - 0.5
     x_max = maximum(x_vec) + l + 0.5
@@ -160,16 +165,10 @@ function generate_cartpole_animation(t_vec, x_vec, θ_vec, F_vec; l=1.0, k_f=0.5
     return anim
 end
 
-# Extract data from the Optimal Control Problem output
-# (Assuming OCPI.res contains a time vector, e.g., OCPI.res.t)
-t_data = LinRange(OCPI.settings.tspan[1], OCPI.settings.tspan[2], OCPI.settings.N)
-x_data = OCPI.res.x[:x]
-θ_data = OCPI.res.x[:θ]
-F_data = vcat(0.0, OCPI.res.u[:F])
 target_fps = 30
 dt = OCPI.settings.di
 skip = max(1, round(Int, 1.0 / (target_fps * dt)))
 
 # Generate and export the animation
-animation_obj = generate_cartpole_animation(t_data, x_data, θ_data, F_data; skip_steps=skip)  # Adjust skip_steps for faster animation if needed
+animation_obj = generate_cartpole_animation(t, OCPI.res.x[:x], OCPI.res.x[:θ], vcat(0.0, OCPI.res.u[:F]); skip_steps=skip)  # Adjust skip_steps for faster animation if needed
 gif(animation_obj, "examples/cart_pole/cart_pole_optimal_control.gif", fps=target_fps)

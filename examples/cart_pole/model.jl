@@ -40,7 +40,7 @@ function cart_pole()
         D(v)~a,
 
         # Dynamic equations
-        (M+m)*a+m*l*D(ω)*cos(θ)-m*l*ω^2*sin(θ)~F,
+        (M+m)*a+m*l*D(ω)*cos(θ)-m*l*ω^2*sin(θ)+F~0,
         l*D(ω)+a*cos(θ)+g*sin(θ)~0,
 
         # power
