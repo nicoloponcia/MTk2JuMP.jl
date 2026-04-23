@@ -1,83 +1,86 @@
+@inline _clean_result_name(name::AbstractString) = Symbol(replace(name, "(t)" => ""))
+@inline _clean_result_name(name) = Symbol(replace(string(name), "(t)" => ""))
 
+function _collect_named_vector_dict(getter, names)
+    result = Dict{Symbol, Vector{Float64}}()
+    sizehint!(result, length(names))
 
+    @inbounds for i in eachindex(names)
+        result[_clean_result_name(names[i])] = getter(i)
+    end
+
+    return result
+end
+
+function _collect_named_matrix_dict(getter, names)
+    result = Dict{Symbol, Matrix{Float64}}()
+    sizehint!(result, length(names))
+
+    @inbounds for i in eachindex(names)
+        result[_clean_result_name(names[i])] = getter(i)
+    end
+
+    return result
+end
+
+function _collect_named_scalar_dict(getter, names)
+    result = Dict{Symbol, Vector{Float64}}()
+    sizehint!(result, length(names))
+
+    @inbounds for i in eachindex(names)
+        result[_clean_result_name(names[i])] = [getter(i)]
+    end
+
+    return result
+end
 
 function collect_x_res!(OCPI::OCPInterface_)
-    x_res = Dict{Symbol, Vector{Float64}}()
-    for i in 1:OCPI.meta.nx
-        res_x = value(OCPI.vars.x[i,:])
-        name_x = Symbol(replace(OCPI.meta.x_names[i],"(t)"=>""))
-        x_res[name_x] = res_x
-    end
-    OCPI.res.x = x_res
+    OCPI.res.x = _collect_named_vector_dict(i -> value.(view(OCPI.vars.x, i, :)), OCPI.meta.x_names)
 end
 
 function collect_u_res!(OCPI::OCPInterface_)
-    u_res = Dict{Symbol, Vector{Float64}}()
-    for i in 1:OCPI.meta.nu
-        res_u = value(OCPI.vars.u[i,:])
-        name_u = Symbol(replace(OCPI.meta.u_names[i],"(t)"=>""))
-        u_res[name_u] = res_u
-    end
-    OCPI.res.u = u_res
+    OCPI.res.u = _collect_named_vector_dict(i -> value.(view(OCPI.vars.u, i, :)), OCPI.meta.u_names)
 end
 
 function collect_y_res!(OCPI::OCPInterface_)
-    y_res = Dict{Symbol, Vector{Float64}}()
     y_eqs = ModelingToolkit.observed(OCPI.sys)
-    for i in eachindex(y_eqs)
-        name_y = ModelingToolkit.getname(y_eqs[i].lhs)
-        res_y = value.(get_yi_by_name(OCPI,name_y))
-        y_res[name_y] = res_y
+    y_res = Dict{Symbol, Vector{Float64}}()
+    sizehint!(y_res, length(y_eqs))
+
+    @inbounds for i in eachindex(y_eqs)
+        name_y = _clean_result_name(ModelingToolkit.getname(y_eqs[i].lhs))
+        y_res[name_y] = value.(view(OCPI.y_exprs, i, :))
     end
+
     OCPI.res.y = y_res
 end
 
 function collect_p_res!(OCPI::OCPInterface_)
-    p_res = Dict{Symbol, Vector{Float64}}()
-    for i in 1:OCPI.meta.np
-        res_p = value(OCPI.vars.p[i,1])
-        name_p = Symbol(replace(OCPI.meta.p_names[i],"(t)"=>""))
-        p_res[name_p] = [res_p]
-    end
-    OCPI.res.p = p_res
+    OCPI.res.p = _collect_named_scalar_dict(i -> value(OCPI.vars.p[i, 1]), OCPI.meta.p_names)
 end
 
 function collect_gDyn_dual!(OCPI::OCPInterface_)
-    gDyn_dual = Dict{Symbol, Matrix{Float64}}()
-    for i in 1:OCPI.meta.nx
-        name_x = Symbol(replace(OCPI.meta.x_names[i],"(t)"=>""))
-        duals_gDyn = dual.(OCPI.gDyn.g[i,:,:])
-        gDyn_dual[name_x] = duals_gDyn
-    end
-    OCPI.duals.gDyn = gDyn_dual
+    OCPI.duals.gDyn = _collect_named_matrix_dict(i -> dual.(view(OCPI.gDyn.g, i, :, :)), OCPI.meta.x_names)
 end
 
 function collect_x_col_res!(OCPI::OCPInterface_)
-    x_col_res = Dict{Symbol, Matrix{Float64}}()
-    for i in 1:OCPI.meta.nx
-        res_x_col = value.(OCPI.vars.x_col[i,:,:])
-        name_x = Symbol(replace(OCPI.meta.x_names[i],"(t)"=>""))
-        x_col_res[name_x] = res_x_col
-    end
-    OCPI.res.x_col = x_col_res
+    OCPI.res.x_col = _collect_named_matrix_dict(i -> value.(view(OCPI.vars.x_col, i, :, :)), OCPI.meta.x_names)
 end
 
 function collect_gAux_dual!(OCPI::OCPInterface_)
     gAux_dual = Dict{Symbol, Array{Float64}}()
-    for (key, constraints) in OCPI.gAux
-        duals_gAux = [dual(con) for con in constraints]
+    sizehint!(gAux_dual, length(OCPI.gAux))
 
-        if isa(duals_gAux, Vector)
-            gAux_dual[key] = reshape(duals_gAux, :, 1)
-        else
-            gAux_dual[key] = duals_gAux
-        end
+    for (key, constraints) in OCPI.gAux
+        duals_gAux = dual.(constraints)
+        gAux_dual[key] = duals_gAux isa Vector ? reshape(duals_gAux, :, 1) : duals_gAux
     end
+
     OCPI.duals.gAux = gAux_dual
 end
 
 function collect_SLS!(OCPI::OCPInterface_; f_scale::Union{Float64,Matrix{Float64},Matrix{JuMP.AffExpr},Matrix{JuMP.QuadExpr},Matrix{JuMP.NonlinearExpr}}=1.0)
-    N = OCPI.settings.N
+    N = OCPI.settings.Discretization.N
     nx = OCPI.meta.nx
     sys = OCPI.sys
     decision_vars = OCPI.decision_vars
@@ -87,14 +90,15 @@ function collect_SLS!(OCPI::OCPInterface_; f_scale::Union{Float64,Matrix{Float64
     x_col_res = OCPI.res.x_col
     gDyn_dual = OCPI.duals.gDyn
     dxScale = OCPI.scales.dx
+    order = OCPI.settings.Integration.Collocation.order
 
-    gDyn_dual_mat = zeros(nx, N - 1, OCPI.settings.Coll_set.order)
+    gDyn_dual_mat = zeros(nx, N - 1, order)
     for i in 1:nx
         name_x = Symbol(replace(x_names[i], "(t)" => ""))
         gDyn_dual_mat[i, :, :] = gDyn_dual[name_x]
     end
 
-    x_col = zeros(nx, N - 1, OCPI.settings.Coll_set.order + 1)
+    x_col = zeros(nx, N - 1, order + 1)
     for i in 1:nx
         name_x = Symbol(replace(x_names[i], "(t)" => ""))
         x_col[i, :, :] = x_col_res[name_x]
@@ -102,7 +106,7 @@ function collect_SLS!(OCPI::OCPInterface_; f_scale::Union{Float64,Matrix{Float64
 
     clean_names = [Symbol(replace(string(name), r"\(t\)" => "")) for name in u_names]
     u_col = hcat([u_res[name] for name in clean_names]...)'
-    u_col = repeat(u_col, 1, 1, OCPI.settings.Coll_set.order + 1)
+    u_col = repeat(u_col, 1, 1, order + 1)
 
     pp = parameters(sys)
     param_dict = get_param_dict(OCPI)
@@ -122,15 +126,12 @@ function collect_SLS!(OCPI::OCPInterface_; f_scale::Union{Float64,Matrix{Float64
         end
 
         ls = zeros(N - 1)
-
-        if f_scale == 1.0
-            f_scale = ones(N - 1, OCPI.settings.Coll_set.order)
-        end
+        scaled_f = f_scale isa Number ? fill(f_scale, N - 1, order) : f_scale
 
         for i in 1:N-1
             step_sensitivity = 0.0
 
-            for j in 1:OCPI.settings.Coll_set.order
+            for j in 1:order
                 x_ij = x_col[:, i, j]
                 u_ij = u_col[:, i, j]
 
@@ -139,7 +140,7 @@ function collect_SLS!(OCPI::OCPInterface_; f_scale::Union{Float64,Matrix{Float64
                     df_dmu_ij[k] = df_dmu_func[k](x_ij..., u_ij...)
                 end
 
-                lambda_ij = gDyn_dual_mat[:, i, j] .* dxScale .* f_scale[i, j]
+                lambda_ij = gDyn_dual_mat[:, i, j] .* dxScale .* scaled_f[i, j]
                 s_ij = dot(lambda_ij, df_dmu_ij)
                 step_sensitivity += -s_ij
             end
@@ -159,7 +160,7 @@ function collect_all_results!(OCPI::OCPInterface_)
     collect_u_res!(OCPI)
     collect_y_res!(OCPI)
     collect_p_res!(OCPI)
-    if OCPI.settings.int_method == :Coll
+    if OCPI.settings.Integration.int_method == :Coll
         collect_x_col_res!(OCPI)
     end
     collect_gDyn_dual!(OCPI)

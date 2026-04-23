@@ -28,8 +28,7 @@ using Test
         )
 
         ocpi = IFB.OCPInterface()
-        ocpi.settings = config
-        IFB.setup_problem!(ocpi, ocpi.model)
+    IFB.setup_problem!(ocpi, config)
 
         @test ocpi.settings.Discretization.N == 12
         @test ocpi.settings.Discretization.tspan == (0.0, 6.0)
@@ -88,8 +87,7 @@ using Test
         )
 
         ocpi = IFB.OCPInterface()
-        ocpi.settings = config
         @test_throws ErrorException IFB.validate_settings!(config)
-        @test_throws ErrorException IFB.setup_problem!(ocpi, ocpi.model)
+        @test_throws ErrorException IFB.setup_problem!(ocpi, config)
     end
 end

@@ -15,8 +15,6 @@ function set_control_der!(OCPI::OCPInterface_; dt::Union{Vector{JuMP.NonlinearEx
         OCPI.uDer = @expression(OCPI.model, [i in 1:OCPI.meta.nu, j in 1:(N-2)],
             (OCPI.vars.u[i,j+1] - OCPI.vars.u[i,j] ) / (dt[j]))
     end
-
-    # delta_idx = findfirst(x -> x == "delta(t)", OCPI.meta.u_names)
 end
 
 

@@ -49,7 +49,6 @@ end
 
 function setup_problem!(OCPI::OCPInterface_, NLPConfig::OCPSettings_)
     OCPI.settings = validate_settings!(NLPConfig)
-    validate_settings!(OCPI.settings)
     if OCPI.settings.Integration.int_method == :Coll
         LGPoly.set_coll_method!(OCPI.settings.Integration.Collocation)
     end

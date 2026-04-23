@@ -12,33 +12,24 @@ end
 
 
 function compute_bounds(names, L, U)
-# x_names = OCPI.x_names
+    # x_names = OCPI.x_names
 
-lb = Array{Float64}(undef, length(names))
-ub = Array{Float64}(undef, length(names))
+    lb = Array{Float64}(undef, length(names))
+    ub = Array{Float64}(undef, length(names))
 
-for (i, name) in enumerate(names)
-    # Extract base name (e.g., "omega_FL(t)" -> :omega_FL)
-    clean_symbol = Symbol(split(name, '(')[1])
-    
-    # TODO rethink custom bounds
-    # if clean_symbol == :x
-    #     lb[i] = minimum(track.cx) - 10.0
-    #     ub[i] = maximum(track.cx) + 10.0
-    # elseif clean_symbol == :y
-    #     lb[i] = minimum(track.cy) - 10.0
-    #     ub[i] = maximum(track.cy) + 10.0
-    # else
+    for (i, name) in enumerate(names)
+        # Extract base name (e.g., "omega_FL(t)" -> :omega_FL)
+        clean_symbol = Symbol(split(name, '(')[1])
+
         try
             lb[i] = getfield(L, clean_symbol)
             ub[i] = getfield(U, clean_symbol)
         catch
             error("Unknown state variable: $name")
         end
-    # end
-end
+    end
 
-return lb, ub
+    return lb, ub
 end
 
 function set_x_simple_bounds!(OCPI::OCPInterface_, xL::Array{Float64}, xU::Array{Float64})
@@ -80,18 +71,18 @@ end
 
 
 function compute_scales(names, Scales)
-scale_vec = Array{Float64}(undef, length(names))
-for (i, name) in enumerate(names)
-    # Extract base name (e.g., "omega_FL(t)" -> :omega_FL)
-    clean_symbol = Symbol(split(name, '(')[1])
-    
-    try
-        scale_vec[i] = getfield(Scales, clean_symbol)
-    catch
-        error("Unknown variable for scaling: $name")
+    scale_vec = Array{Float64}(undef, length(names))
+    for (i, name) in enumerate(names)
+        # Extract base name (e.g., "omega_FL(t)" -> :omega_FL)
+        clean_symbol = Symbol(split(name, '(')[1])
+
+        try
+            scale_vec[i] = getfield(Scales, clean_symbol)
+        catch
+            error("Unknown variable for scaling: $name")
+        end
     end
-end
-return scale_vec
+    return scale_vec
 end
 
 
