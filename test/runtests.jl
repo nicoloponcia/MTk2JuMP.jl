@@ -172,8 +172,8 @@ end
     end
 
     @testset "cart pole pipeline" begin
-        @inferred prepare_cart_pole_pipeline(4)
-        ocpi = build_cart_pole_pipeline(4)
+        @inferred prepare_cart_pole_pipeline(200)
+        ocpi = build_cart_pole_pipeline(200)
         @test JuMP.termination_status(ocpi.model) in (MOI.LOCALLY_SOLVED, MOI.OPTIMAL)
         @test haskey(ocpi.res.x, :x)
         @test haskey(ocpi.res.u, :F)
