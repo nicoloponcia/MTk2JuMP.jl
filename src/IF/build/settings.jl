@@ -1,23 +1,23 @@
-function set_settings!(OCPI::OCPInterface_, settings::NamedTuple)
-    OCPI.settings.N = settings.N
-    OCPI.settings.tspan = settings.tspan
-    OCPI.settings.di = (settings.tspan[2] - settings.tspan[1])/(settings.N-1)
+function set_settings!(OCPI::OCPInterface_, NLPConfig::NamedTuple)
+    OCPI.settings.N = NLPConfig.Discretization.N
+    OCPI.settings.tspan = NLPConfig.Discretization.tspan
+    OCPI.settings.di = (NLPConfig.Discretization.tspan[2] - NLPConfig.Discretization.tspan[1])/(NLPConfig.Discretization.N-1)
 
-    OCPI.settings.int_method = settings.int_method
+    OCPI.settings.int_method = NLPConfig.Integration.int_method
 
     if OCPI.settings.int_method == :Coll
-        if !haskey(settings, :Coll_set)
+        if !haskey(NLPConfig.Integration, :Collocation)
             error("Collocation settings must be provided for Coll integration method.")
         end
-        OCPI.settings.Coll_set.order = settings.Coll_set.order
-        OCPI.settings.Coll_set.poly = settings.Coll_set.poly
+        OCPI.settings.Coll_set.order = NLPConfig.Integration.Collocation.order
+        OCPI.settings.Coll_set.poly = NLPConfig.Integration.Collocation.poly
         LGPoly.set_coll_method!(OCPI.settings.Coll_set)
     elseif OCPI.settings.int_method == :EE
     else
         error("Unsupported integration method: $(OCPI.settings.int_method). Supported methods are :LGR and :EE.")
     end
 
-    OCPI.settings.Params_mode = settings.param_mode
+    OCPI.settings.Params_mode = NLPConfig.Params.mode
 
 end
 

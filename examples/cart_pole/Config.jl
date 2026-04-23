@@ -7,6 +7,10 @@ function get_nlp_config()
         warm_start = true,
     )
 
+    Discretization = (
+        N = 50,
+        tspan = (0.0, 5.0),
+    )
 
     Collocation = (
         poly = :LGR,
@@ -26,6 +30,7 @@ function get_nlp_config()
     # Derived scales
     NLPConfig = (
         Ipopt = Ipopt,
+        Discretization = Discretization,
         Integration = Integration,
         Params = Params
     )

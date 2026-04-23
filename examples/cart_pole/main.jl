@@ -12,15 +12,7 @@ OCPI.model = Model(Ipopt.Optimizer; add_bridges=false)
 # load configs
 include("Config.jl")
 MTk2JuMP.IF.build.setup_optimizer!(OCPI.model, NLPConfig)
-
-settings = (
-        N = 500,
-        tspan = (0, 5.0),
-        int_method = NLPConfig.Integration.int_method,
-        Coll_set = NLPConfig.Integration.Collocation,
-        param_mode = NLPConfig.Params.mode,
-)
-MTk2JuMP.IF.build.set_settings!(OCPI, settings)
+MTk2JuMP.IF.build.set_settings!(OCPI, NLPConfig)
 
 # Load MTk model
 include("model.jl")
