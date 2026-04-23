@@ -145,9 +145,9 @@ mutable struct solver_info_
     solver_time::Float64
     termination_status::Any
     iterations::Int
-    primals::Dict{Symbol, Vector{Float64}}
+    dual_value::Float64
 end
-solver_info() = solver_info_(0.0, 0.0, 0.0, nothing, 0, Dict{Symbol, Vector{Float64}}())
+solver_info() = solver_info_(0.0, 0.0, 0.0, nothing, 0, 0.0)
 
 mutable struct duals_
     gDyn::Dict{Symbol, Matrix{Float64}}

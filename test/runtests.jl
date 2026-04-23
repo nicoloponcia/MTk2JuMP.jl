@@ -1,4 +1,6 @@
 using MTk2JuMP
+using JuMP
+using Ipopt
 using Test
 
 @testset "MTk2JuMP.jl" begin
@@ -89,5 +91,24 @@ using Test
         ocpi = IFB.OCPInterface()
         @test_throws ErrorException IFB.validate_settings!(config)
         @test_throws ErrorException IFB.setup_problem!(ocpi, config)
+    end
+
+    @testset "solver info collection" begin
+        ocpi = IFB.OCPInterface()
+        ocpi.model = Model(Ipopt.Optimizer; add_bridges=false)
+
+        @variable(ocpi.model, x >= 0)
+        @objective(ocpi.model, Min, (x - 2)^2)
+        optimize!(ocpi.model)
+
+        info = IFB.collect_solver_info!(ocpi)
+
+        @test info.termination_status == JuMP.termination_status(ocpi.model)
+        @test isfinite(info.solver_time)
+        @test info.iterations ≥ 0
+        @test isapprox(info.objective_value, 0.0; atol=1e-6)
+        @test haskey(info.primals, :decision_vars)
+        @test length(info.primals[:decision_vars]) == 1
+        @test isapprox(info.primals[:decision_vars][1], 2.0; atol=1e-6)
     end
 end
