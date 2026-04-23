@@ -170,17 +170,28 @@ end
 
 
 
-function collect_solver_info!(OCPI::OCPInterface_; reg::Union{Float64, JuMP.NonlinearExpr}=0.0)
+function collect_solver_info!(OCPI::OCPInterface_; reg::Union{Float64, JuMP.AbstractJuMPScalar}=0.0)
     model = OCPI.model
     solver_info = OCPI.solver_info
 
     solver_info.termination_status = JuMP.termination_status(model)
-    solver_info.solver_time = solve_time(OCPI.model)
-    
-    solver_info.iterations = barrier_iterations(model)
+    solver_info.solver_time = try
+        JuMP.solve_time(model)
+    catch
+        0.0
+    end
+    solver_info.iterations = try
+        Int(JuMP.MOI.get(JuMP.backend(model), JuMP.MOI.NumberOfIterations()))
+    catch
+        0
+    end
     solver_info.objective_value = JuMP.result_count(model) > 0 ? JuMP.objective_value(model) : NaN
     solver_info.regularization_value = reg isa Number ? reg : value(reg)
-    solver_info.dual_value = dual_objective_value(model)
+    solver_info.dual_value = try
+        JuMP.dual_objective_value(model)
+    catch
+        0.0
+    end
 
     return solver_info
 end
