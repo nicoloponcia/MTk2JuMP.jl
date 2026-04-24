@@ -39,8 +39,13 @@ MTk2JuMP.IF.build.set_opt_vars!(OCPI; x0=x0, u0=u0)
 # create symbolic expression for auxiliary variables
 MTk2JuMP.IF.build.set_y_expr!(OCPI)
 
+# augment end time to decision variable so to optimize
+# NOTE: the naive signle variable produce row dense Hessian because of f_scale
+# tf could be duplicated, and propagation constraints enforced
+tf = @variable(OCPI.model, 0 <= tf <= OCPI.settings.tspan[2] * 2, start = OCPI.settings.tspan[2])
+
 # create dynamics constraints
-f_scale = OCPI.settings.di
+f_scale = tf / OCPI.settings.N
 MTk2JuMP.IF.build.set_gDyn!(OCPI; f_scale=f_scale)
 
 # closure sparse parameters constraint if needed
@@ -92,12 +97,12 @@ x_base_expr = MTk2JuMP.IF.build.get_yi_by_name(OCPI, :x_base)
 
 # define objective to minimize energy consumption
 # P_expr = MTk2JuMP.IF.build.get_yi_by_name(OCPI, :P)
-obj = sum(OCPI.vars_n.u[i,j]^2 for i in 1:OCPI.meta.nu, j in 1:OCPI.settings.N-1)
+# obj = sum(OCPI.vars_n.u[i,j]^2 for i in 1:OCPI.meta.nu, j in 1:OCPI.settings.N-1)
+obj = tf
 
-# add regularization on angle trajectory to encourage more upright landing
-θ_idx = findfirst(x -> x == "θ(t)", OCPI.meta.x_names)
-reg = sum((OCPI.vars_n.x_col[θ_idx, j, k])^2 for j in 1:OCPI.settings.N-1 , k in 1:OCPI.settings.Coll_set.order)
-obj += 0.5 * reg
+    # add regularization on control imputs
+reg = sum(OCPI.vars_n.u[i,j]^2 for i in 1:OCPI.meta.nu, j in 1:OCPI.settings.N-1)
+obj += 0.01 * reg
 
 # populate objective
 JuMP.@objective(OCPI.model, Min, obj)
@@ -111,6 +116,8 @@ MTk2JuMP.IF.build.collect_all_results!(OCPI)
 # collect solver info
 MTk2JuMP.IF.build.collect_solver_info!(OCPI, reg=reg)
 
+# rebuild time vector if tf is optimized
+t = LinRange(OCPI.settings.tspan[1], value(tf), OCPI.settings.N)
 
 # Plot output trajectories
 fmt = (linewidth=2, legend=false, grid=true, xlabel="Time \$t\$ [s]")
