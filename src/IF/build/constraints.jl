@@ -9,20 +9,24 @@ function get_param_dict(OCPI::OCPInterface_)
     itp_key = [k for k in keys(param_dict)
                if occursin("interpolator", string(k)) && !occursin("2d", string(k))]
     for kk in itp_key
-        name = Symbol(replace(repr(kk.f), "₊interpolator" => ""))
+        name = replace(repr(kk.name), "₊interpolator1d" => "")
+        name = replace(name, ":" => "")
+        name = Symbol(name)
 
         bad_value = param_dict[kk]
         itp_operator = OCPI.LUTs1D[name].itp_operator
-        param_dict = Dict(substitute(k, Dict(kk => kk.f)) => substitute(v, Dict(bad_value => itp_operator)) for (k, v) in param_dict)
+        param_dict = Dict(substitute(k, Dict(kk => kk)) => substitute(v, Dict(bad_value => itp_operator)) for (k, v) in param_dict)
     end
 
     itp2_key = [k for k in keys(param_dict) if occursin("interpolator2d", string(k))]
     for kk in itp2_key
-        name = Symbol(replace(repr(kk.f), "₊interpolator2d" => ""))
+        name = replace(repr(kk.name), "₊interpolator2d" => "")
+        name = replace(name, ":" => "")
+        name = Symbol(name)
 
         bad_value = param_dict[kk]
         itp_operator = OCPI.LUTs2D[name].itp_operator
-        param_dict = Dict(substitute(k, Dict(kk => kk.f)) => substitute(v, Dict(bad_value => itp_operator)) for (k, v) in param_dict)
+        param_dict = Dict(substitute(k, Dict(kk => kk)) => substitute(v, Dict(bad_value => itp_operator)) for (k, v) in param_dict)
     end
 
     return param_dict
@@ -71,6 +75,8 @@ function Coll_dyn_constraints!(OCPI::OCPInterface_;
     dx = Vector{Any}(undef, OCPI.meta.nx)
     for j in 1:OCPI.meta.nx
         dxj_expr = ModelingToolkit.full_equations(OCPI.sys)[j].rhs
+        display(dxj_expr)
+        # TODO correct error HERE
         dxj_expr = SymbolicUtils.substitute(dxj_expr, param_dict)
         dx[j] = build_function(
             dxj_expr,

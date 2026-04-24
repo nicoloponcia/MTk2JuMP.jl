@@ -187,8 +187,8 @@ mutable struct OCPInterface_
 
     res::res_
 
-    LUTs1D::Dict{Symbol, LUTs.LUT1D}
-    LUTs2D::Dict{Symbol, LUTs.LUT2D}
+    LUTs1D::Dict{Symbol, LUT1D}
+    LUTs2D::Dict{Symbol, LUT2D}
 
     solver_info::solver_info_
 
@@ -209,7 +209,7 @@ OCPInterface() = OCPInterface_(JuMP.Model(), nothing,
                               gDyn(), Dict{Symbol, Array{JuMP.ConstraintRef}}(), JuMP.ConstraintRef[],
                               JuMP.NonlinearExpr[], JuMP.NonlinearExpr[],
                               res(),
-                              Dict{Symbol, LUTs.LUT1D}(), Dict{Symbol, LUTs.LUT2D}(),
+                              Dict{Symbol, LUT1D}(), Dict{Symbol, LUT2D}(),
                               solver_info(),
                               duals(),
                               Dict{Symbol, Vector{Float64}}())

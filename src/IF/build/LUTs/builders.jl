@@ -1,12 +1,12 @@
-function build1D(x::Vector{Float64}, y::Vector{Float64}, OCPI::Any, LUTName::Symbol=:UnknownLUT)
+function build_LUT1d(x::Vector{Float64}, y::Vector{Float64}, OCPI::Any, LUTName::Symbol=:UnknownLUT)
     ext_type = ExtrapolationType.Constant
-    itp = LinearInterpolation(x, y, extrapolation_right=ext_type, extrapolation_left=ext_type)
+    itp = LinearInterpolation(y, x, extrapolation_right=ext_type, extrapolation_left=ext_type)
     itp_wrapper(t) = itp(t)
     itp_operator = add_nonlinear_operator(OCPI.model, 1, itp_wrapper; name = LUTName)
     return LUT1D(x, y, itp, itp_wrapper, itp_operator)
 end
 
-function build2D(x1::Vector{Float64}, x2::Vector{Float64}, y::Matrix{Float64}, OCPI::Any, LUTName::Symbol)
+function build_LUT2d(x1::Vector{Float64}, x2::Vector{Float64}, y::Matrix{Float64}, OCPI::OCPInterface_, LUTName::Symbol)
     itp_dim = (
         LinearInterpolationDimension(x1),
         LinearInterpolationDimension(x2)
