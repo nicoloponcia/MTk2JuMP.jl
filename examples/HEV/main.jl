@@ -28,9 +28,6 @@ OCPI.sys = HEVModel.hev(OCPI.LUTs1D, OCPI.LUTs2D)
 # extract sys structure
 MTk2JuMP.IF.build.get_ode_architecture!(OCPI; verbose=false)
 
-
-tf = @variable(OCPI.model, 0 <= tf <= OCPI.settings.tspan[2] * 2, start = OCPI.settings.tspan[2])
-
 # get and set bounds
 SB = include("ScalesBounds.jl")
 MTk2JuMP.IF.build.set_bounds!(OCPI, SB.Bounds)
@@ -59,47 +56,23 @@ MTk2JuMP.IF.build.set_control_acc!(OCPI; dt=[OCPI.settings.di])
 # set boundary constraints
 # e.g. below, could develop another environment to handle more complex OCP
 x_idx = findfirst(x -> x == "x(t)", OCPI.meta.x_names)
-@constraint(OCPI.model, OCPI.vars.x[x_idx, 1] == 100.0)
+@constraint(OCPI.model, OCPI.vars.x[x_idx, 1] == 0.0)
+@constraint(OCPI.model, OCPI.vars.x[x_idx, end] == 100.0)
 # final target on base
 
-y_idx = findfirst(x -> x == "y(t)", OCPI.meta.x_names)
-@constraint(OCPI.model, OCPI.vars.x[y_idx, 1] == 100.0)
-# final target on base
+SOC_idx = findfirst(x -> x == "SOC(t)", OCPI.meta.x_names)
+@constraint(OCPI.model, OCPI.vars.x[SOC_idx, 1] == 1.0)
 
-vx_idx = findfirst(x -> x == "v_x(t)", OCPI.meta.x_names)
-@constraint(OCPI.model, OCPI.vars.x[vx_idx, 1] == 0.0)
-@constraint(OCPI.model, OCPI.vars.x[vx_idx, end] == 0.0)
+m_fuel_idx = findfirst(x -> x == "m_fuel(t)", OCPI.meta.x_names)
+@constraint(OCPI.model, OCPI.vars.x[m_fuel_idx, 1] == 0.0)
 
-vy_idx = findfirst(x -> x == "v_y(t)", OCPI.meta.x_names)
-@constraint(OCPI.model, OCPI.vars.x[vy_idx, 1] == -5.0)
-@constraint(OCPI.model, OCPI.vars.x[vy_idx, end] == 0.0)
-
-θ_idx = findfirst(x -> x == "θ(t)", OCPI.meta.x_names)
-@constraint(OCPI.model, OCPI.vars.x[θ_idx, 1] == pi/6)
-@constraint(OCPI.model, OCPI.vars.x[θ_idx, end] == 0.0)
-
-ω_idx = findfirst(x -> x == "ω(t)", OCPI.meta.x_names)
-@constraint(OCPI.model, OCPI.vars.x[ω_idx, 1] == 0.2)
-@constraint(OCPI.model, OCPI.vars.x[ω_idx, end] == 0.0)
-
-
-
-# set auxiliary constraints
-# base always above ground
-y_base_expr = MTk2JuMP.IF.build.get_yi_by_name(OCPI, :y_base)
-@constraint(OCPI.model, [i in 1:OCPI.settings.N-1], y_base_expr[i] >= 0.0)
-
-# end condition on base
-@constraint(OCPI.model, y_base_expr[end] == 0.0)
-
-x_base_expr = MTk2JuMP.IF.build.get_yi_by_name(OCPI, :x_base)
-@constraint(OCPI.model, x_base_expr[end] == 0.0)
-
+v_idx = findfirst(x -> x == "v(t)", OCPI.meta.x_names)
+@constraint(OCPI.model, OCPI.vars.x[v_idx, 1] == 2.0)
 
 # define objective to minimize energy consumption
 # P_expr = MTk2JuMP.IF.build.get_yi_by_name(OCPI, :P)
 # obj = sum(OCPI.vars_n.u[i,j]^2 for i in 1:OCPI.meta.nu, j in 1:OCPI.settings.N-1)
-obj = tf
+obj = 0.0
 
 # add regularization on control imputs
 reg = sum(OCPI.vars_n.u[i,j]^2 for i in 1:OCPI.meta.nu, j in 1:OCPI.settings.N-1)
@@ -118,33 +91,31 @@ MTk2JuMP.IF.build.collect_all_results!(OCPI)
 MTk2JuMP.IF.build.collect_solver_info!(OCPI, reg=reg)
 
 # rebuild time vector if tf is optimized
-t = LinRange(OCPI.settings.tspan[1], value(tf), OCPI.settings.N)
+t = LinRange(OCPI.settings.tspan[1], OCPI.settings.tspan[2], OCPI.settings.N)
 
 # Plot output trajectories
 fmt = (linewidth=2, legend=false, grid=true, xlabel="Time \$t\$ [s]")
 # Construct individual subplots with mathematical LaTeX labels
 p1 = plot(t, OCPI.res.x[:x]; ylabel="Position \$x\$", fmt...)
-p2 = plot(t, OCPI.res.x[:y]; ylabel="Position \$y\$", fmt...)
-p3 = plot(t, OCPI.res.x[:v_x]; ylabel="Velocity \$v_x\$", fmt...)
-p4 = plot(t, OCPI.res.x[:v_y]; ylabel="Velocity \$v_y\$", fmt...)
-p5 = plot(t, OCPI.res.x[:θ]; ylabel="Angle \$\\theta\$", fmt...)
-p6 = plot(t, OCPI.res.x[:ω]; ylabel="Ang. Vel. \$\\omega\$", fmt...)
+p2 = plot(t, OCPI.res.x[:SOC]; ylabel="State of Charge \$SOC\$", fmt...)
+p3 = plot(t, OCPI.res.x[:m_fuel]; ylabel="Fuel Mass \$m_{fuel}\$", fmt...)
+p4 = plot(t, OCPI.res.x[:v]; ylabel="Velocity \$v\$", fmt...)
 
 # Control and output variables (note the distinct time vector indices)
-p7 = plot(t[1:end-1], OCPI.res.u[:F_m]; ylabel="Main Thrust \$F_m\$", color=:darkred, fmt...)
-p8 = plot(t[1:end-1], OCPI.res.u[:F_l]; ylabel="Lateral Thrust \$F_l\$", color=:darkgreen, fmt...)
-p9 = plot(t[1:end-1], OCPI.res.u[:F_r]; ylabel="Lateral Thrust \$F_r\$", color=:darkblue, fmt...)
+p5 = plot(t[1:end-1], OCPI.res.u[:T_e]; ylabel="Engine Torque \$T_e\$", color=:darkred, fmt...)
+p6 = plot(t[1:end-1], OCPI.res.u[:T_m]; ylabel="Motor Torque \$T_m\$", color=:darkblue, fmt...)
 
 # Assemble all subplots into a master figure
-plot(p1, p2, p3, p4, p5, p6, p7, p8, p9,
-     layout = (3, 3), size = (900, 450), dpi = 200,
+plot(p1, p2, p3, p4, p5, p6,
+     layout = (3, 2), size = (900, 450), dpi = 200,
      plot_title = "Optimal Control Trajectories",
      left_margin = 5Plots.mm, bottom_margin = 5Plots.mm)
 
 
-
-
-
+plot(t[1:end-1], OCPI.res.y[:V_oc])
+plot(t[1:end-1], OCPI.res.y[:R_0])
+plot(t[1:end-1], OCPI.res.y[:mdot_fuel])
+plot(t[1:end-1], OCPI.res.y[:omega_shaft])
 # Create animation
 
 function generate_rocket_animation(t_vec, x_vec, y_vec, θ_vec, Fm_vec, Fl_vec, Fr_vec; L=15.0, k_fm=0.0005, k_fl=0.005, skip_steps=1)

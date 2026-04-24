@@ -40,6 +40,7 @@ function setup_optimizer!(model::Model, NLPConfig::OCPSettings_)
     set_optimizer_attribute(model, "print_timing_statistics", "yes")
     set_optimizer_attribute(model, "print_level", 5)
     
+    # TODO check
     set_attribute(model, "hessian_approximation", "exact")
     # set_optimizer_attribute(model, "hessian_approximation", "limited-memory")
     return model

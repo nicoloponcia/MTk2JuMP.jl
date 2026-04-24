@@ -52,8 +52,10 @@ function hev(LUTs1D, LUTs2D)
     eqs = Equation[
         # --- Kinematic & Longitudinal Dynamics ---
         D(x) ~ v,
-        F_drag ~ 0.5 * rho * CdA * v^2,
-        F_roll ~ M_veh * g * Crr,
+        # F_drag ~ 0.5 * rho * CdA * v^2,
+        F_drag ~ 0.0,
+        # F_roll ~ M_veh * g * Crr,
+        F_roll ~ 0.0,
         
         # Total tractive force mapped from shaft torques to the wheels
         F_trac ~ ((T_e + T_m) * FD) / r_w,
@@ -63,11 +65,12 @@ function hev(LUTs1D, LUTs2D)
         omega_shaft ~ (v / r_w) * FD,
 
         # --- 2D LUT: Engine Fuel Consumption ---
+        # TODO activate 2d lut
         bsfc_lut.input1.u ~ omega_shaft,
         bsfc_lut.input2.u ~ T_e,
         mdot_fuel ~ bsfc_lut.output.u,
-        # mdot_fuel ~ 1.0,
-        D(m_fuel) ~ mdot_fuel,
+        mdot_fuel ~ 1.0,
+        # D(m_fuel) ~ mdot_fuel,
 
         # --- 1D LUTs: Battery Characteristics ---
         voc_lut.input.u ~ SOC,
@@ -79,8 +82,10 @@ function hev(LUTs1D, LUTs2D)
         # Assuming 100% motor efficiency for simplicity (you could add another 2D LUT here)
         P_batt ~ T_m * omega_shaft, 
         
-        # Solving the circuit equation: P = V_oc * I - I^2 * R_0 using the quadratic formula
-        I_batt ~ (V_oc - sqrt(V_oc^2 - 4 * R_0 * P_batt)) / (2 * R_0),
+        # circuit equation
+        # I_batt ~ (V_oc - (V_oc^2 - 4 * R_0 * P_batt)^0.5) / (2 * R_0), # high fidelity, not convergin
+        I_batt ~ P_batt / V_oc, # first order approximation
+        # I_batt ~ (P_batt / V_oc) + (R_0 * P_batt^2) / (V_oc^3), # second order approximation
         
         # State of charge depletion
         D(SOC) ~ -I_batt / Q_bat
@@ -88,6 +93,8 @@ function hev(LUTs1D, LUTs2D)
 
     # Construct the ODESystem
     sys = System(eqs, t; name=:hev, systems=[bsfc_lut, voc_lut, r0_lut])
+    # sys = System(eqs, t; name=:hev, systems=[voc_lut, r0_lut])
+    # sys = System(eqs, t; name=:hev)
     return mtkcompile(sys)
 end
 

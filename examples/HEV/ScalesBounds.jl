@@ -3,7 +3,7 @@ function get_SB()
     
 xL = (
     SOC = 0.0,
-    m_fuel = 0.0,
+    m_fuel = -100.0,
     v = 0.0,
     x = 0.0,
 )

@@ -75,8 +75,6 @@ function Coll_dyn_constraints!(OCPI::OCPInterface_;
     dx = Vector{Any}(undef, OCPI.meta.nx)
     for j in 1:OCPI.meta.nx
         dxj_expr = ModelingToolkit.full_equations(OCPI.sys)[j].rhs
-        display(dxj_expr)
-        # TODO correct error HERE
         dxj_expr = SymbolicUtils.substitute(dxj_expr, param_dict)
         dx[j] = build_function(
             dxj_expr,

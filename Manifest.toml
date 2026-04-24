@@ -2,7 +2,7 @@
 
 julia_version = "1.12.4"
 manifest_format = "2.0"
-project_hash = "8d892953a55c0f56a109f9a4d722fa397b5513a8"
+project_hash = "97a7c163c57e46261bb18da45c824a06fe0fabeb"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "f7304359109c768cf32dc5fa2d371565bb63b68a"
@@ -1445,7 +1445,7 @@ uuid = "f1f71cc9-e9ae-5b93-9b94-4fe0e1ad3748"
 version = "5.5.6+0"
 
 [[deps.MTk2JuMP]]
-deps = ["DataInterpolations", "DataInterpolationsND", "InteractiveUtils", "Ipopt", "JLD2", "JSON", "JuMP", "LinearAlgebra", "ModelingToolkit", "ModelingToolkitStandardLibrary", "Plots", "Revise", "Symbolics"]
+deps = ["DataInterpolations", "DataInterpolationsND", "ForwardDiff", "InteractiveUtils", "Ipopt", "JLD2", "JSON", "JuMP", "LinearAlgebra", "MAT", "ModelingToolkit", "ModelingToolkitStandardLibrary", "Plots", "Revise", "Symbolics"]
 path = "."
 uuid = "01bfc454-84e7-4aa9-b211-868c162aee58"
 version = "1.0.0-DEV"

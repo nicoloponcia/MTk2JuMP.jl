@@ -2,9 +2,10 @@ module build
 
 using ModelingToolkit, JuMP
 using LinearAlgebra
-using DataInterpolations
-using DataInterpolationsND
 import JuMP: add_nonlinear_operator
+using ForwardDiff
+using StaticArrays
+using ..DataInterpolations2D
 
 include("LGPoly.jl")
 include("LUTs.jl")

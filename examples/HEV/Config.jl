@@ -2,7 +2,7 @@ function get_nlp_config()
     return MTk2JuMP.IF.build.OCPSettings(
         Ipopt = MTk2JuMP.IF.build.IpoptConfig(
         tol = 1e-6,
-        max_iter = 10000,
+        max_iter = 1000,
         # hsllib_path = "C:\\ProgramData\\HSL\\bin\\libhsl.dll",
         hsllib_path = "",
         # linear_solver = "ma27",
