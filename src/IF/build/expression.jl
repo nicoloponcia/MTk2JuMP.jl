@@ -7,7 +7,7 @@ function get_yi_by_name(OCPI::OCPInterface_, name::Symbol)
 end
 
 
-function set_control_der!(OCPI::OCPInterface_; dt::Union{Vector{JuMP.NonlinearExpr}, Vector{Float64}})
+function set_control_der!(OCPI::OCPInterface_; dt::Union{Vector{<:JuMP.AbstractJuMPScalar}, Vector{Float64}})
     N = OCPI.settings.N
     dt = length(dt) == 1 && typeof(dt[1]) == Float64 ? fill(dt[1], OCPI.settings.N-1) : dt
 
@@ -19,7 +19,7 @@ end
 
 
 
-function set_control_acc!(OCPI::OCPInterface_; dt::Union{Vector{JuMP.NonlinearExpr}, Vector{Float64}})
+function set_control_acc!(OCPI::OCPInterface_; dt::Union{Vector{<:JuMP.AbstractJuMPScalar}, Vector{Float64}})
     N = OCPI.settings.N
     dt = length(dt) == 1 && typeof(dt[1]) == Float64 ? fill(dt[1], OCPI.settings.N-2) : dt
         

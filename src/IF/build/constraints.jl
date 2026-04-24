@@ -29,19 +29,19 @@ function get_param_dict(OCPI::OCPInterface_)
 end
 
 function set_gDyn!(OCPI::OCPInterface_;
-    f_scale::Union{Float64,Vector{Float64}, Matrix{Float64}, JuMP.AbstractJuMPScalar, Vector{JuMP.AbstractJuMPScalar}, Matrix{<:JuMP.AbstractJuMPScalar}}=1.0)
+    f_scale::Union{Float64,Vector{Float64}, Matrix{Float64}, JuMP.AbstractJuMPScalar, Vector{<:JuMP.AbstractJuMPScalar}, Matrix{<:JuMP.AbstractJuMPScalar}}=1.0)
 
     if OCPI.settings.int_method == :EE
-        f_scale = length(f_scale) == 1 ? fill(f_scale, OCPI.settings.N-1) : f_scale
+        f_scale = (f_scale isa Union{Number, JuMP.AbstractJuMPScalar}) ? fill(f_scale, OCPI.settings.N-1) : f_scale
         EE_dyn_constraints!(OCPI; f_scale=f_scale)
     elseif OCPI.settings.int_method == :Coll
-        f_scale = length(f_scale) == 1 ? fill(f_scale, OCPI.settings.N-1, OCPI.settings.Coll_set.order+1) : f_scale
+        f_scale = (f_scale isa Union{Number, JuMP.AbstractJuMPScalar}) ? fill(f_scale, OCPI.settings.N-1, OCPI.settings.Coll_set.order+1) : f_scale
         Coll_dyn_constraints!(OCPI; f_scale=f_scale)
     end
 end
 
 function EE_dyn_constraints!(OCPI::OCPInterface_;
-    f_scale::Union{Float64,Vector{Float64}, Matrix{Float64}, JuMP.AbstractJuMPScalar, Vector{JuMP.AbstractJuMPScalar}, Matrix{<:JuMP.AbstractJuMPScalar}}=1.0)
+    f_scale::Union{Float64,Vector{Float64}, Matrix{Float64}, JuMP.AbstractJuMPScalar, Vector{<:JuMP.AbstractJuMPScalar}, Matrix{<:JuMP.AbstractJuMPScalar}}=1.0)
     param_dict = get_param_dict(OCPI)
 
     dx = Vector{Any}(undef, OCPI.meta.nx)
@@ -65,7 +65,7 @@ function EE_dyn_constraints!(OCPI::OCPInterface_;
 end
 
 function Coll_dyn_constraints!(OCPI::OCPInterface_;
-    f_scale::Union{Float64,Vector{Float64}, Matrix{Float64}, JuMP.AbstractJuMPScalar, Vector{JuMP.AbstractJuMPScalar}, Matrix{<:JuMP.AbstractJuMPScalar}}=1.0)
+    f_scale::Union{Float64,Vector{Float64}, Matrix{Float64}, JuMP.AbstractJuMPScalar, Vector{<:JuMP.AbstractJuMPScalar}, Matrix{<:JuMP.AbstractJuMPScalar}}=1.0)
     param_dict = get_param_dict(OCPI)
 
     dx = Vector{Any}(undef, OCPI.meta.nx)

@@ -100,7 +100,7 @@ x_base_expr = MTk2JuMP.IF.build.get_yi_by_name(OCPI, :x_base)
 # obj = sum(OCPI.vars_n.u[i,j]^2 for i in 1:OCPI.meta.nu, j in 1:OCPI.settings.N-1)
 obj = tf
 
-    # add regularization on control imputs
+# add regularization on control imputs
 reg = sum(OCPI.vars_n.u[i,j]^2 for i in 1:OCPI.meta.nu, j in 1:OCPI.settings.N-1)
 obj += 0.01 * reg
 

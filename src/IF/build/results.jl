@@ -79,7 +79,7 @@ function collect_gAux_dual!(OCPI::OCPInterface_)
     OCPI.duals.gAux = gAux_dual
 end
 
-function collect_SLS!(OCPI::OCPInterface_; f_scale::Union{Float64,Matrix{Float64},Matrix{JuMP.AffExpr},Matrix{JuMP.QuadExpr},Matrix{JuMP.NonlinearExpr}}=1.0)
+function collect_SLS!(OCPI::OCPInterface_; f_scale::Union{Float64,Matrix{Float64},Matrix{<:JuMP.AbstractJuMPScalar}}=1.0)
     N = OCPI.settings.Discretization.N
     nx = OCPI.meta.nx
     sys = OCPI.sys

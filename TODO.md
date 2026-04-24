@@ -3,3 +3,5 @@
 - add settings for control_der and control_acc specifying the type of finite difference
 - better solver info handling. Rethink if possible to capture iptopt outputs without .txt
 - recheck where use NonlinearExpr... and subsitute with general AbstractJuMPScalar
+- race launch with gears and spatial domain
+- thermodynamic simulation maybe dyad?
