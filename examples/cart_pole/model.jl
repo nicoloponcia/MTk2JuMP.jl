@@ -48,7 +48,7 @@ function cart_pole()
     ]
 
     # Construct the ODESystem
-    sys = ODESystem(eqs, t; name=:cart_pole)
+    sys = System(eqs, t; name=:cart_pole)
     return mtkcompile(sys)
 end
 

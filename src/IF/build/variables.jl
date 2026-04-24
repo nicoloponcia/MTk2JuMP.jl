@@ -4,7 +4,7 @@ function set_opt_vars!(OCPI::OCPInterface_; x0=nothing, u0=nothing, p0=nothing)
     elseif OCPI.settings.int_method == :Coll
         Coll_vars!(OCPI; x0=x0, u0=u0, p0=p0)
     else
-        error("Unsupported integration method: $(OCPI.settings.int_method). Supported methods are :LGR and :EE.")
+        error("Unsupported integration method: $(OCPI.settings.int_method). Supported methods are :Coll and :EE.")
     end
 end
 

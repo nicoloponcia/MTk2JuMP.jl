@@ -62,7 +62,7 @@ function rocket_landing()
     ]
 
     # Construct the ODESystem
-    sys = ODESystem(eqs, t; name=:rocket_landing)
+    sys = System(eqs, t; name=:rocket_landing)
     return mtkcompile(sys)
 end
 

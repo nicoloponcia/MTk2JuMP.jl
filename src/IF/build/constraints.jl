@@ -93,8 +93,19 @@ function Coll_dyn_constraints!(OCPI::OCPInterface_;
     OCPI.gDyn.g = JuMP.@constraint(OCPI.model, [i in 1:OCPI.meta.nx, j in 1:(OCPI.settings.N-1), k in 1:OCPI.settings.Coll_set.order],
         OCPI.gDyn.lhs[i,j,k] == OCPI.gDyn.rhs[i,j,k])
 
-    OCPI.gDyn.closure = JuMP.@constraint(OCPI.model, [i in 1:OCPI.meta.nx, j in 1:OCPI.settings.N-1],
-        OCPI.vars.x_col[i,j,1] == OCPI.vars.x[i,j])
+    start_node_idx = findfirst(tau -> isapprox(tau, 0.0; atol=1e-12), OCPI.settings.Coll_set.nodes)
+    isnothing(start_node_idx) && error("Collocation nodes must include tau=0.0 to enforce interval closure.")
+
+    closure_init = JuMP.@constraint(OCPI.model, [i in 1:OCPI.meta.nx],
+        OCPI.vars.x_col[i,1,start_node_idx] == OCPI.vars.x[i,1])
+
+    if OCPI.settings.N > 2
+        closure_link = JuMP.@constraint(OCPI.model, [i in 1:OCPI.meta.nx, j in 2:(OCPI.settings.N-1)],
+            OCPI.vars.x_col[i,j,start_node_idx] == sum(OCPI.settings.Coll_set.D .* OCPI.vars.x_col[i,j-1,:]))
+        OCPI.gDyn.closure = vcat(vec(closure_init), vec(closure_link))
+    else
+        OCPI.gDyn.closure = vec(closure_init)
+    end
 
 end
 
