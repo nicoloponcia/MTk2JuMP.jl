@@ -5,3 +5,4 @@
 - recheck where use NonlinearExpr... and subsitute with general AbstractJuMPScalar
 - race launch with gears and spatial domain
 - thermodynamic simulation maybe dyad?
+- examples to show how to build 1d and 2d interpolators, where to put in components mtk, and highlight accuracy

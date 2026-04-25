@@ -5,7 +5,7 @@ using LinearAlgebra
 import JuMP: add_nonlinear_operator
 using ForwardDiff
 using StaticArrays
-using ..DataInterpolations2D
+using ..SmoothInterpolations
 
 include("LGPoly.jl")
 include("LUTs.jl")

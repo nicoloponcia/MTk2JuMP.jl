@@ -57,25 +57,29 @@ MTk2JuMP.IF.build.set_control_acc!(OCPI; dt=[OCPI.settings.di])
 # e.g. below, could develop another environment to handle more complex OCP
 x_idx = findfirst(x -> x == "x(t)", OCPI.meta.x_names)
 @constraint(OCPI.model, OCPI.vars.x[x_idx, 1] == 0.0)
-@constraint(OCPI.model, OCPI.vars.x[x_idx, end] == 100.0)
-# final target on base
 
 SOC_idx = findfirst(x -> x == "SOC(t)", OCPI.meta.x_names)
-@constraint(OCPI.model, OCPI.vars.x[SOC_idx, 1] == 1.0)
+@constraint(OCPI.model, OCPI.vars.x[SOC_idx, 1] == 0.9)
 
 m_fuel_idx = findfirst(x -> x == "m_fuel(t)", OCPI.meta.x_names)
 @constraint(OCPI.model, OCPI.vars.x[m_fuel_idx, 1] == 0.0)
 
+# constraint velocity to follow wltp cycle
+include("wltp.jl")
+vel_itp = MTk2JuMP.IF.SmoothInterpolations.build_smooth_rbf1d(wltp.time, wltp.velocity)
+
 v_idx = findfirst(x -> x == "v(t)", OCPI.meta.x_names)
-@constraint(OCPI.model, OCPI.vars.x[v_idx, 1] == 2.0)
+@constraint(OCPI.model, [j in 1:OCPI.settings.N], OCPI.vars.x[v_idx, j] == vel_itp(t[j]))
+
 
 # define objective to minimize energy consumption
 # P_expr = MTk2JuMP.IF.build.get_yi_by_name(OCPI, :P)
-# obj = sum(OCPI.vars_n.u[i,j]^2 for i in 1:OCPI.meta.nu, j in 1:OCPI.settings.N-1)
-obj = 0.0
+m_fuel_idx = findfirst(x -> x == "m_fuel(t)", OCPI.meta.x_names)
+obj = OCPI.vars.x[m_fuel_idx, end]
 
 # add regularization on control imputs
-reg = sum(OCPI.vars_n.u[i,j]^2 for i in 1:OCPI.meta.nu, j in 1:OCPI.settings.N-1)
+# reg = sum(OCPI.vars_n.u[i,j]^2 for i in 1:OCPI.meta.nu, j in 1:OCPI.settings.N-1)
+reg = 0.0
 obj += 0.01 * reg
 
 # populate objective
@@ -92,132 +96,85 @@ MTk2JuMP.IF.build.collect_solver_info!(OCPI, reg=reg)
 
 # rebuild time vector if tf is optimized
 t = LinRange(OCPI.settings.tspan[1], OCPI.settings.tspan[2], OCPI.settings.N)
-
-# Plot output trajectories
-fmt = (linewidth=2, legend=false, grid=true, xlabel="Time \$t\$ [s]")
-# Construct individual subplots with mathematical LaTeX labels
-p1 = plot(t, OCPI.res.x[:x]; ylabel="Position \$x\$", fmt...)
-p2 = plot(t, OCPI.res.x[:SOC]; ylabel="State of Charge \$SOC\$", fmt...)
-p3 = plot(t, OCPI.res.x[:m_fuel]; ylabel="Fuel Mass \$m_{fuel}\$", fmt...)
-p4 = plot(t, OCPI.res.x[:v]; ylabel="Velocity \$v\$", fmt...)
-
-# Control and output variables (note the distinct time vector indices)
-p5 = plot(t[1:end-1], OCPI.res.u[:T_e]; ylabel="Engine Torque \$T_e\$", color=:darkred, fmt...)
-p6 = plot(t[1:end-1], OCPI.res.u[:T_m]; ylabel="Motor Torque \$T_m\$", color=:darkblue, fmt...)
-
-# Assemble all subplots into a master figure
-plot(p1, p2, p3, p4, p5, p6,
-     layout = (3, 2), size = (900, 450), dpi = 200,
-     plot_title = "Optimal Control Trajectories",
-     left_margin = 5Plots.mm, bottom_margin = 5Plots.mm)
-
-
-plot(t[1:end-1], OCPI.res.y[:V_oc])
-plot(t[1:end-1], OCPI.res.y[:R_0])
-plot(t[1:end-1], OCPI.res.y[:mdot_fuel])
-plot(t[1:end-1], OCPI.res.y[:omega_shaft])
-# Create animation
-
-function generate_rocket_animation(t_vec, x_vec, y_vec, θ_vec, Fm_vec, Fl_vec, Fr_vec; L=15.0, k_fm=0.0005, k_fl=0.005, skip_steps=1)
-    # Determine plot limits based on data range
-    x_min = minimum(x_vec) - L * 2.5
-    x_max = maximum(x_vec) + L * 2.5
-    y_min = -L
-    y_max = maximum(y_vec) + L * 2.0
-
-    # Enforce a minimum width to maintain a reasonable aspect ratio
-    if x_max - x_min < 50.0
-        center_x = (x_max + x_min) / 2.0
-        x_min = center_x - 25.0
-        x_max = center_x + 25.0
-    end
-
-    idxs = 1:skip_steps:length(t_vec)
-    xx = x_vec[idxs]
-    yy = y_vec[idxs]
-    θθ = θ_vec[idxs]
-    FFm = Fm_vec[idxs]
-    FFl = Fl_vec[idxs]
-    FFr = Fr_vec[idxs]
-    tt = t_vec[idxs]
-
-    anim = @animate for i in 1:length(idxs)
-        x_c = xx[i]
-        y_c = yy[i]
-        θ   = θθ[i]
-        F_m = FFm[i]
-        F_l = FFl[i]
-        F_r = FFr[i]
-
-        # Calculate rocket geometry parameters
-        sinθ = sin(θ)
-        cosθ = cos(θ)
-        
-        x_base = x_c - L * sinθ
-        y_base = y_c - L * cosθ
-        
-        x_nose = x_c + L * sinθ
-        y_nose = y_c + L * cosθ
-
-        # Initialize the frame
-        p = plot(xlims=(x_min, x_max), ylims=(y_min, y_max), 
-                 aspect_ratio=:equal, legend=false, grid=true,
-                 title="Rocket Landing Trajectory (t = $(round(tt[i], digits=2))s)")
-        
-        # Draw the ground
-        hline!(p, [0.0], color=:black, linewidth=2.0)
-
-        # Draw the target landing pad
-        plot!(p, [-10.0, 10.0], [0.0, 0.0], linewidth=6, color=:green)
-
-        # Draw the rocket body
-        plot!(p, [x_base, x_nose], [y_base, y_nose], linewidth=6, color=:gray)
-
-        # Draw the Center of Mass
-        scatter!(p, [x_c], [y_c], marker=:circle, markersize=6, color=:blue)
-        
-        # Draw the actuation force vectors (Exhaust plumes)
-        # Main Engine Plume (Exhaust points opposite to force direction)
-        if F_m > 1e-3
-            quiver!(p, [x_base], [y_base], 
-                    quiver=([-F_m * k_fm * sinθ], [-F_m * k_fm * cosθ]), 
-                    color=:orange, linewidth=4)
-        end
-        
-        # Left Lateral Plume (Force pushes right, exhaust points left)
-        if F_l > 1e-3
-            quiver!(p, [x_base], [y_base], 
-                    quiver=([-F_l * k_fl * cosθ], [F_l * k_fl * sinθ]), 
-                    color=:red, linewidth=2)
-        end
-
-        # Right Lateral Plume (Force pushes left, exhaust points right)
-        if F_r > 1e-3
-            quiver!(p, [x_base], [y_base], 
-                    quiver=([F_r * k_fl * cosθ], [-F_r * k_fl * sinθ]), 
-                    color=:red, linewidth=2)
-        end
-    end
     
-    return anim
+# Align the comparison plots on the same time grid used by the NLP outputs.
+ty = t[1:end-1]
+
+# Compare the values used inside the optimization against direct LUT evaluation.
+# The left column shows the two signals overlaid, and the right column shows the
+# pointwise difference so the interpolation drift is visible at a glance.
+soc_samples = OCPI.res.x[:SOC][1:end-1]
+omega_samples = OCPI.res.y[:omega_shaft]
+te_samples = OCPI.res.u[:T_e]
+
+voc_opt = OCPI.res.y[:V_oc]
+r0_opt = OCPI.res.y[:R_0]
+bsfc_opt = OCPI.res.y[:bsfc]
+
+voc_ref = [OCPI.LUTs1D[:voc_lut].itp(s) for s in soc_samples]
+r0_ref = [OCPI.LUTs1D[:r0_lut].itp(s) for s in soc_samples]
+bsfc_ref = [OCPI.LUTs2D[:bsfc_lut].itp(ω, τ) for (ω, τ) in zip(omega_samples, te_samples)]
+
+function comparison_panel(time, optimized, reference; ylabel::String, title::String)
+    comparison = plot(
+        time,
+        optimized;
+        label="inside optimization",
+        linewidth=2,
+        color=:darkblue,
+        ylabel=ylabel,
+        title=title,
+        legend=:topright,
+        grid=true,
+    )
+    plot!(comparison, time, reference; label="direct LUT interpolation", linewidth=2, linestyle=:dash, color=:darkorange)
+
+    delta = plot(
+        time,
+        optimized .- reference;
+        label="difference",
+        linewidth=2,
+        color=:darkred,
+        ylabel="Δ" * ylabel,
+        xlabel="Time \$t\$ [s]",
+        legend=:topright,
+        grid=true,
+    )
+
+    return comparison, delta
 end
 
-target_fps = 30
-dt = OCPI.settings.di 
-skip = max(1, round(Int, 1.0 / (target_fps * dt)))
+voc_cmp, voc_diff = comparison_panel(ty, voc_opt, voc_ref; ylabel="Open Circuit Voltage \$V_{oc}\$", title="\$V_{oc}\$: optimization vs LUT")
+r0_cmp, r0_diff = comparison_panel(ty, r0_opt, r0_ref; ylabel="Resistance \$R_0\$", title="\$R_0\$: optimization vs LUT")
+bsfc_cmp, bsfc_diff = comparison_panel(ty, bsfc_opt, bsfc_ref; ylabel="Brake Specific Fuel Consumption \$bsfc\$", title="BSFC LUT: optimization vs LUT")
 
-# Generate and export the animation
-# A leading zero is concatenated if the control vectors (u) are one element shorter than state vectors (x)
-animation_obj = generate_rocket_animation(
-    t, 
-    OCPI.res.x[:x], 
-    OCPI.res.x[:y], 
-    OCPI.res.x[:θ], 
-    vcat(0.0, OCPI.res.u[:F_m]), 
-    vcat(0.0, OCPI.res.u[:F_l]), 
-    vcat(0.0, OCPI.res.u[:F_r]); 
-    L=15.0, 
-    skip_steps=skip
+# Plot output trajectories
+fmt = (linewidth=2, grid=true, xlabel="Time \$t\$ [s]")
+
+p1 = plot(t, OCPI.res.x[:x]; ylabel="Position \$x\$", legend=false, fmt...)
+p2 = plot(t, OCPI.res.x[:SOC]; ylabel="State of Charge \$SOC\$", legend=false, fmt...)
+p3 = plot(t, OCPI.res.x[:m_fuel]; ylabel="Fuel Mass \$m_{fuel}\$", legend=false, fmt...)
+p4 = plot(t, OCPI.res.x[:v]; ylabel="Velocity \$v\$", legend=false, fmt...)
+plot!(p4, t, vel_itp.(t); label="WLTP reference", linewidth=2, linestyle=:dash, color=:darkorange)
+
+p5 = plot(t[1:end-1], OCPI.res.u[:T_e]; ylabel="Engine Torque \$T_e\$", color=:darkred, legend=false, fmt...)
+p6 = plot(t[1:end-1], OCPI.res.u[:T_m]; ylabel="Motor Torque \$T_m\$", color=:darkblue, legend=false, fmt...)
+p7 = plot(t[1:end-1], OCPI.res.u[:F_brk]; ylabel="Braking Force \$F_{brk}\$", color=:darkgreen, legend=false, fmt...)
+
+plot(
+    p1, p2,
+    p3, p4,
+    p5, p6, p7,
+    voc_cmp, voc_diff,
+    r0_cmp, r0_diff,
+    bsfc_cmp, bsfc_diff;
+    layout = (4, 4),
+    size = (1920, 1080),
+    dpi = 200,
+    plot_title = "HEV Optimal Control and Smooth LUT Comparison",
+    left_margin = 5Plots.mm,
+    bottom_margin = 5Plots.mm,
 )
 
-gif(animation_obj, "examples/rocket_landing/rocket_optimal_control.gif", fps=target_fps)
+
+

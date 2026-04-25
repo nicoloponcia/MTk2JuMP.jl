@@ -9,7 +9,7 @@ function hev(LUTs1D, LUTs2D)
     D = Differential(t)
 
     # controls (Engine Torque and Motor Torque)
-    @discretes T_e(t) T_m(t)
+    @discretes T_e(t) T_m(t) F_brk(t)
 
     # Define system parameters
     @parameters begin
@@ -42,8 +42,10 @@ function hev(LUTs1D, LUTs2D)
         V_oc(t)        # Open-circuit voltage (V)
         R_0(t)         # Internal resistance (Ohms)
         mdot_fuel(t)   # Fuel mass flow rate (kg/s)
+        bsfc(t)        # Brake Specific Fuel Consumption (g/kWh)
     end
 
+    # NOTE -> instantiate interpolator systems
     @named bsfc_lut = MTk2JuMP.MTk.Interpolations.Interpolation2d(; itp=LUTs2D[:bsfc_lut].itp)
     @named voc_lut = MTk2JuMP.MTk.Interpolations.Interpolation1d(; itp=LUTs1D[:voc_lut].itp)
     @named r0_lut = MTk2JuMP.MTk.Interpolations.Interpolation1d(; itp=LUTs1D[:r0_lut].itp)
@@ -52,27 +54,27 @@ function hev(LUTs1D, LUTs2D)
     eqs = Equation[
         # --- Kinematic & Longitudinal Dynamics ---
         D(x) ~ v,
-        # F_drag ~ 0.5 * rho * CdA * v^2,
-        F_drag ~ 0.0,
-        # F_roll ~ M_veh * g * Crr,
+        F_drag ~ 0.5 * rho * CdA * v^2,
         F_roll ~ 0.0,
         
         # Total tractive force mapped from shaft torques to the wheels
-        F_trac ~ ((T_e + T_m) * FD) / r_w,
+        F_trac ~ ((T_e + T_m) * FD) / r_w - F_brk,
         D(v) ~ (F_trac - F_drag - F_roll) / M_veh,
 
         # Powertrain kinematics (assuming wheels don't slip)
         omega_shaft ~ (v / r_w) * FD,
 
         # --- 2D LUT: Engine Fuel Consumption ---
-        # TODO activate 2d lut
+        # NOTE -> connect 2d interpolator input and output
         bsfc_lut.input1.u ~ omega_shaft,
         bsfc_lut.input2.u ~ T_e,
-        mdot_fuel ~ bsfc_lut.output.u,
-        mdot_fuel ~ 1.0,
-        # D(m_fuel) ~ mdot_fuel,
+        bsfc ~ bsfc_lut.output.u,
+        mdot_fuel ~ bsfc * T_e * omega_shaft / 3.6e9, # convert from g/kWh to kg/s
+        # D(m_fuel) ~ 1.0,
+        D(m_fuel) ~ mdot_fuel,
 
         # --- 1D LUTs: Battery Characteristics ---
+        # NOTE -> connect 1d interpolator input and output
         voc_lut.input.u ~ SOC,
         V_oc ~ voc_lut.output.u,
         r0_lut.input.u ~ SOC,
@@ -92,9 +94,8 @@ function hev(LUTs1D, LUTs2D)
     ]
 
     # Construct the ODESystem
+    # NOTE -> included interpolator systems must be added to systems array
     sys = System(eqs, t; name=:hev, systems=[bsfc_lut, voc_lut, r0_lut])
-    # sys = System(eqs, t; name=:hev, systems=[voc_lut, r0_lut])
-    # sys = System(eqs, t; name=:hev)
     return mtkcompile(sys)
 end
 

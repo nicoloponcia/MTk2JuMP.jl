@@ -5,16 +5,21 @@ using InteractiveUtils
 using Test
 
 const CART_POLE_DIR = joinpath(@__DIR__, "..", "examples", "cart_pole")
+const HEV_DIR = joinpath(@__DIR__, "..", "examples", "HEV")
 const ROCKET_LANDING_DIR = joinpath(@__DIR__, "..", "examples", "rocket_landing")
 const IFB = MTk2JuMP.IF.build
 const IFLG = MTk2JuMP.IF.LGPoly
 const MOI = JuMP.MOI
 include(joinpath(CART_POLE_DIR, "model.jl"))
+include(joinpath(HEV_DIR, "model.jl"))
 include(joinpath(ROCKET_LANDING_DIR, "model.jl"))
 const CART_POLE_MODEL = CartPoleModel
+const HEV_MODEL = HEVModel
 const ROCKET_LANDING_MODEL = RocketLandingModel
 const CART_POLE_CONFIG = include(joinpath(CART_POLE_DIR, "Config.jl"))
 const CART_POLE_SB = include(joinpath(CART_POLE_DIR, "ScalesBounds.jl"))
+const HEV_CONFIG = include(joinpath(HEV_DIR, "Config.jl"))
+const HEV_SB = include(joinpath(HEV_DIR, "ScalesBounds.jl"))
 const ROCKET_LANDING_CONFIG = include(joinpath(ROCKET_LANDING_DIR, "Config.jl"))
 const ROCKET_LANDING_SB = include(joinpath(ROCKET_LANDING_DIR, "ScalesBounds.jl"))
 
@@ -127,6 +132,49 @@ function prepare_rocket_landing_pipeline(n::Int; int_method::Symbol=:Coll, coll_
     obj = sum(ocpi.vars_n.u[i, j]^2 for i in 1:ocpi.meta.nu, j in 1:(ocpi.settings.N - 1))
     reg = sum((ocpi.vars_n.x_col[θ_idx, j, k])^2 for j in 1:(ocpi.settings.N - 1), k in 1:ocpi.settings.Coll_set.order)
     @objective(ocpi.model, Min, obj + 0.5 * reg)
+
+    return ocpi
+end
+
+function prepare_hev_pipeline(n::Int; max_iter::Int=5)
+    ocpi = IFB.OCPInterface()
+    ocpi.model = Model(Ipopt.Optimizer; add_bridges=false)
+
+    config = deepcopy(HEV_CONFIG)
+    config.Discretization.N = n
+    config.Ipopt.max_iter = max_iter
+
+    IFB.setup_problem!(ocpi, config)
+    IFB.load_LUT2d!(ocpi, joinpath(HEV_DIR, "bsfc_lut.json"), :bsfc_lut; x1_name="omega", x2_name="torque", y_name="bsfc")
+    IFB.load_LUT1d!(ocpi, joinpath(HEV_DIR, "r0_lut.json"), :r0_lut; x_name="SOC", y_name="r0")
+    IFB.load_LUT1d!(ocpi, joinpath(HEV_DIR, "voc_lut.json"), :voc_lut; x_name="SOC", y_name="voc")
+    ocpi.sys = HEV_MODEL.hev(ocpi.LUTs1D, ocpi.LUTs2D)
+    IFB.get_ode_architecture!(ocpi; verbose=false)
+    IFB.set_bounds!(ocpi, HEV_SB.Bounds)
+    IFB.set_scales!(ocpi, HEV_SB.Scales)
+
+    x0 = zeros(Float64, ocpi.meta.nx, ocpi.settings.Discretization.N)
+    u0 = zeros(Float64, ocpi.meta.nu, ocpi.settings.Discretization.N - 1)
+    IFB.set_opt_vars!(ocpi; x0=x0, u0=u0)
+    IFB.set_y_expr!(ocpi)
+    IFB.set_gDyn!(ocpi; f_scale=ocpi.settings.di)
+    IFB.set_sparse_param_closure!(ocpi)
+    IFB.set_control_der!(ocpi; dt=[ocpi.settings.di])
+    IFB.set_control_acc!(ocpi; dt=[ocpi.settings.di])
+
+    x_idx = findfirst(==("x(t)"), ocpi.meta.x_names)
+    SOC_idx = findfirst(==("SOC(t)"), ocpi.meta.x_names)
+    m_fuel_idx = findfirst(==("m_fuel(t)"), ocpi.meta.x_names)
+    v_idx = findfirst(==("v(t)"), ocpi.meta.x_names)
+
+    @constraint(ocpi.model, ocpi.vars.x[x_idx, 1] == 0.0)
+    @constraint(ocpi.model, ocpi.vars.x[x_idx, end] == 100.0)
+    @constraint(ocpi.model, ocpi.vars.x[SOC_idx, 1] == 1.0)
+    @constraint(ocpi.model, ocpi.vars.x[m_fuel_idx, 1] == 0.0)
+    @constraint(ocpi.model, ocpi.vars.x[v_idx, 1] == 2.0)
+
+    reg = sum(ocpi.vars_n.u[i, j]^2 for i in 1:ocpi.meta.nu, j in 1:(ocpi.settings.N - 1))
+    @objective(ocpi.model, Min, 0.01 * reg)
 
     return ocpi
 end
@@ -296,6 +344,28 @@ end
         @test haskey(ocpi.res.y, :x_base)
         @test haskey(ocpi.res.y, :y_base)
         @test isfinite(ocpi.solver_info.objective_value)
+    end
+
+    @testset "HEV smooth interpolation integration" begin
+        ocpi = prepare_hev_pipeline(30; max_iter=5)
+
+        voc_lut = ocpi.LUTs1D[:voc_lut]
+        r0_lut = ocpi.LUTs1D[:r0_lut]
+        bsfc_lut = ocpi.LUTs2D[:bsfc_lut]
+
+        voc_mid = cld(length(voc_lut.x), 2)
+        r0_mid = cld(length(r0_lut.x), 2)
+        x1_mid = cld(length(bsfc_lut.x1), 2)
+        x2_mid = cld(length(bsfc_lut.x2), 2)
+
+        @test isapprox(voc_lut.itp(voc_lut.x[voc_mid]), voc_lut.y[voc_mid]; atol=1e-6, rtol=1e-6)
+        @test isapprox(r0_lut.itp(r0_lut.x[r0_mid]), r0_lut.y[r0_mid]; atol=1e-6, rtol=1e-6)
+        @test isapprox(bsfc_lut.itp(bsfc_lut.x1[x1_mid], bsfc_lut.x2[x2_mid]), bsfc_lut.y[x1_mid, x2_mid]; atol=1e-5, rtol=1e-5)
+
+        optimize!(ocpi.model)
+
+        @test JuMP.termination_status(ocpi.model) in (MOI.LOCALLY_SOLVED, MOI.OPTIMAL, MOI.ITERATION_LIMIT)
+        @test isfinite(JuMP.objective_value(ocpi.model))
     end
 
     @testset "cart pole pipeline" begin
