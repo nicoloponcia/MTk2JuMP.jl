@@ -368,6 +368,45 @@ end
         @test isfinite(JuMP.objective_value(ocpi.model))
     end
 
+    @testset "SmoothInterpolations accuracy against ground truth" begin
+        @testset "1D smooth interpolator accuracy" begin
+            f1d(x) = sin(1.2 * x) + 0.1 * x^2
+
+            x_train = collect(range(-1.5, 1.5; length=15))
+            y_train = f1d.(x_train)
+            itp1d = MTk2JuMP.IF.SmoothInterpolations.build_smooth_rbf1d(x_train, y_train)
+
+            train_err = maximum(abs.([itp1d(xi) - yi for (xi, yi) in zip(x_train, y_train)]))
+            @test train_err < 1e-9
+
+            x_test = collect(range(-1.4, 1.4; length=29))
+            y_test = f1d.(x_test)
+            test_err = maximum(abs.([itp1d(xi) - yi for (xi, yi) in zip(x_test, y_test)]))
+            @test test_err < 0.09
+        end
+
+        @testset "2D smooth interpolator accuracy" begin
+            f2d(x, y) = sin(1.1 * x) * cos(0.9 * y) + 0.05 * x^2 - 0.03 * y
+
+            x1_train = collect(range(-1.0, 1.0; length=9))
+            x2_train = collect(range(-0.8, 0.8; length=8))
+            z_train = [f2d(x1, x2) for x1 in x1_train, x2 in x2_train]
+            itp2d = MTk2JuMP.IF.SmoothInterpolations.build_smooth_rbf2d(x1_train, x2_train, z_train)
+
+            train_err = maximum(abs.([
+                itp2d(x1, x2) - z_train[i, j] for (i, x1) in enumerate(x1_train), (j, x2) in enumerate(x2_train)
+            ]))
+            @test train_err < 1e-9
+
+            x1_test = collect(range(-0.9, 0.9; length=7))
+            x2_test = collect(range(-0.7, 0.7; length=6))
+            test_err = maximum(abs.([
+                itp2d(x1, x2) - f2d(x1, x2) for x1 in x1_test, x2 in x2_test
+            ]))
+            @test test_err < 0.11
+        end
+    end
+
     @testset "cart pole pipeline" begin
         @code_warntype prepare_cart_pole_pipeline(200)
         ocpi = build_cart_pole_pipeline(200)

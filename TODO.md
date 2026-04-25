@@ -4,5 +4,5 @@
 - better solver info handling. Rethink if possible to capture iptopt outputs without .txt
 - recheck where use NonlinearExpr... and subsitute with general AbstractJuMPScalar
 - race launch with gears and spatial domain
-- thermodynamic simulation maybe dyad?
-- examples to show how to build 1d and 2d interpolators, where to put in components mtk, and highlight accuracy
+
+- create z variables (known_inputs) to handle external inputs to system and strictly defined from outside. Work on active suspension road input
