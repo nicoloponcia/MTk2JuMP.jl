@@ -10,7 +10,7 @@ function get_nlp_config()
         warm_start = true,
         ),
         Discretization = MTk2JuMP.IF.build.DiscretizationConfig(
-        N = 100,
+        N = 1000,
         tspan = (0.0, 5.0),
         ),
         Integration = MTk2JuMP.IF.build.IntegrationConfig(

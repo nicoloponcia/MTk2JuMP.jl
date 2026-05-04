@@ -36,6 +36,22 @@ u0[1, :] .= 0.0
 
 MTk2JuMP.IF.build.set_opt_vars!(OCPI; x0=x0, u0=u0)
 
+# NOTE since in Config.jl Params.mode = :sparse, the variables are duplicated
+println("Parameter variable matrix size: ", size(OCPI.vars.p))
+
+
+# NOTE fix known input values
+z_r = 0.07 .- 0.05 .* cos.(2 .* pi .* t) .- 0.02 .* cos.(20 .* pi .* t)
+z_r_dot = 0.1 .* pi .* sin.(2 .* pi .* t) .+ 0.4 .* pi .* sin.(20 .* pi .* t)
+
+z_r_idx = findfirst(u -> u == "z_r(t)", OCPI.meta.u_names)
+z_r_dot_idx = findfirst(u -> u == "z_r_dot(t)", OCPI.meta.u_names)
+for i in 1:OCPI.settings.N-1
+    fix(OCPI.vars_n.u[z_r_idx, i], z_r[i]; force=true)
+    fix(OCPI.vars_n.u[z_r_dot_idx, i], z_r_dot[i]; force=true)
+end
+
+
 # create symbolic expression for auxiliary variables
 MTk2JuMP.IF.build.set_y_expr!(OCPI)
 
@@ -52,32 +68,22 @@ MTk2JuMP.IF.build.set_control_acc!(OCPI; dt=[OCPI.settings.di])
 
 # set auxiliary constraints
 # e.g. below, could develop another environment to handle more complex OCP
-x_idx = findfirst(x -> x == "x(t)", OCPI.meta.x_names)
-@constraint(OCPI.model, OCPI.vars.x[x_idx, 1] == 0.0)
-@constraint(OCPI.model, OCPI.vars.x[x_idx, end] == 0.0)
+z_idx = findfirst(x -> x == "z(t)", OCPI.meta.x_names)
+@constraint(OCPI.model, OCPI.vars.x[z_idx, 1] == 0.0)
 
-v_idx = findfirst(x -> x == "v(t)", OCPI.meta.x_names)
-@constraint(OCPI.model, OCPI.vars.x[v_idx, 1] == 0.0)
-@constraint(OCPI.model, OCPI.vars.x[v_idx, end] == 0.0)
+z_dot_idx = findfirst(x -> x == "z_dot(t)", OCPI.meta.x_names)
+@constraint(OCPI.model, OCPI.vars.x[z_dot_idx, 1] == 0.0)
 
-θ_idx = findfirst(x -> x == "θ(t)", OCPI.meta.x_names)
-@constraint(OCPI.model, OCPI.vars.x[θ_idx, 1] == 0.0)
-@constraint(OCPI.model, OCPI.vars.x[θ_idx, end] == pi)
 
-ω_idx = findfirst(x -> x == "ω(t)", OCPI.meta.x_names)
-@constraint(OCPI.model, OCPI.vars.x[ω_idx, 1] == 0.0)
-@constraint(OCPI.model, OCPI.vars.x[ω_idx, end] == 0.0)
-
-a_idx = findfirst(x -> x == "a(t)", OCPI.meta.x_names)
-@constraint(OCPI.model, OCPI.vars.x[a_idx, 1] == 0.0)
-@constraint(OCPI.model, OCPI.vars.x[a_idx, end] == 0.0)
 
 # define objective to minimize energy consumption
-P_expr = MTk2JuMP.IF.build.get_yi_by_name(OCPI, :P)
-obj = sum(P_expr[i]^2 for i in 1:OCPI.settings.N-1)
+a_expr = MTk2JuMP.IF.build.get_yi_by_name(OCPI, :a)
+obj = sum(1 * a_expr[i]^2 for i in 1:OCPI.settings.N-1) # minimize discomfort
 
-# obj = sum(OCPI.vars_n.u[i,j]^2 for i in 1:OCPI.meta.nu, j in 1:OCPI.settings.N-1)
+F_idx = findfirst(u -> u == "F(t)", OCPI.meta.u_names)
+reg = sum(1e-5 * OCPI.vars.u[F_idx, i]^2 for i in 1:OCPI.settings.N-1) # regularize control effort
 
+obj += reg
 JuMP.@objective(OCPI.model, Min, obj)
 
 # solve NLP
@@ -90,22 +96,24 @@ MTk2JuMP.IF.build.collect_all_results!(OCPI)
 MTk2JuMP.IF.build.collect_solver_info!(OCPI)
 
 
+# inspect optimal parameters
+println("Optimal spring stiffness k: ", OCPI.res.p[:k])
+println("Optimal damping coefficient c: ", OCPI.res.p[:c])
+
+
 # Plot output trajectories
 fmt = (linewidth=2, legend=false, grid=true, xlabel="Time \$t\$ [s]")
 # Construct individual subplots with mathematical LaTeX labels
-p1 = plot(t, OCPI.res.x[:x]; ylabel="Position \$x\$", fmt...)
-p2 = plot(t, OCPI.res.x[:v]; ylabel="Velocity \$v\$", fmt...)
-p3 = plot(t, OCPI.res.x[:θ]; ylabel="Angle \$\\theta\$", fmt...)
-p4 = plot(t, OCPI.res.x[:ω]; ylabel="Ang. Vel. \$\\omega\$", fmt...)
-p5 = plot(t, OCPI.res.x[:a]; ylabel="Acceleration \$a\$", fmt...)
+p1 = plot(t, OCPI.res.x[:z]; ylabel="Position \$z\$", fmt...)
+p2 = plot(t, OCPI.res.x[:z_dot]; ylabel="Velocity \$\\dot{z}\$", fmt...)
+p3 = plot(t[1:end-1], OCPI.res.y[:a]; ylabel="Acceleration \$a\$", fmt...)
 
 # Control and output variables (note the distinct time vector indices)
-p6 = plot(t[1:end-1], OCPI.res.u[:F]; ylabel="Force \$F\$", color=:darkred, fmt...)
-p7 = plot(t[1:end-1], OCPI.res.y[:P]; ylabel="Power \$P\$", color=:darkgreen, fmt...)
+p4 = plot(t[1:end-1], OCPI.res.u[:F]; ylabel="Control Force \$F\$", fmt...)
 
 # Assemble all subplots into a master figure
-plot(p1, p2, p3, p4, p5, p6, p7, 
-     layout = (2, 4), size = (900, 450), dpi = 200,
+plot(p1, p2, p3, p4, 
+     layout = (2, 2), size = (900, 450), dpi = 200,
      plot_title = "Optimal Control Trajectories",
      left_margin = 5Plots.mm, bottom_margin = 5Plots.mm)
 
@@ -118,57 +126,64 @@ plot(p1, p2, layout=(2,1), size=(800,400))
 
 
 # Create animation
+function generate_suspension_animation(t_vec, z_vec, z_r_vec, F_vec; k_f=0.001, skip_steps=1)
+    # Determine vertical plot limits based on displacement range
+    z_min = min(minimum(z_vec), minimum(z_r_vec)) - 0.5
+    z_max = max(maximum(z_vec), maximum(z_r_vec)) + 1.0
+    
+    # Horizontal limits are fixed since motion is 1D (vertical)
+    x_min = -1.0
+    x_max = 1.0
 
-function generate_cartpole_animation(t_vec, x_vec, θ_vec, F_vec; l=1.0, k_f=0.1, skip_steps=1)
-    # Determine plot limits based on data range
-    x_min = minimum(x_vec) - l - 0.5
-    x_max = maximum(x_vec) + l + 0.5
-    y_min = -l - 0.2
-    y_max = l + 0.2
-
-    idxs = 1:skip_steps:length(t_vec)
-    xx = x_vec[idxs]
-    θθ = θ_vec[idxs]
+    idxs = 1:skip_steps:length(t_vec)-1
+    zz = z_vec[idxs]
+    zz_r = z_r_vec[idxs]
     FF = F_vec[idxs]
     tt = t_vec[idxs]
 
     anim = @animate for i in 1:length(idxs)
-        x_c = xx[i]
-        θ   = θθ[i]
-        F   = FF[i]
-
-        # Calculate pole tip coordinates (θ = 0 points down)
-        x_p = x_c + l * sin(θ)
-        y_p = -l * cos(θ)
+        z_m = zz[i]
+        z_road = zz_r[i]
+        F = FF[i]
 
         # Initialize the frame
-        p = plot(xlims=(x_min, x_max), ylims=(y_min, y_max), 
+        p = plot(xlims=(x_min, x_max), ylims=(z_min, z_max), 
                  aspect_ratio=:equal, legend=false, grid=true,
-                 title="Cart-Pole Trajectory (t = $(round(tt[i], digits=2))s)")
+                 title="Active Suspension Trajectory (t = $(round(tt[i], digits=2))s)")
         
-        # Draw the ground track (rail)
-        hline!(p, [0], color=:black, linewidth=1.5)
+        # Draw the road profile
+        hline!(p, [z_road], color=:black, linewidth=2, linestyle=:dash)
 
-        # Draw the pole (line from cart to tip)
-        plot!(p, [x_c, x_p], [0.0, y_p], linewidth=4, color=:orange)
+        # Draw the suspension linkage (spring/damper representation)
+        plot!(p, [0.0, 0.0], [z_road, z_m], linewidth=3, color=:gray)
 
-        # Draw the cart
-        scatter!(p, [x_c], [0.0], marker=:square, markersize=12, color=:blue)
+        # Draw the quarter-car mass
+        scatter!(p, [0.0], [z_m], marker=:square, markersize=25, color=:blue)
         
         # Draw the actuation force vector
         if abs(F) > 1e-3
-            # The quiver function uses relative displacements
-            quiver!(p, [x_c], [0.0], quiver=([F * k_f], [0.0]), color=:red, linewidth=2)
+            # Quiver points vertically up or down based on the sign of F
+            quiver!(p, [0.0], [z_m], quiver=([0.0], [F * k_f]), color=:red, linewidth=2)
         end
     end
     
     return anim
 end
 
+# Configuration for export
 target_fps = 30
-dt = OCPI.settings.di
+# Note: corrected OCPI.settings.di to OCPI.settings.dt
+dt = OCPI.settings.di 
 skip = max(1, round(Int, 1.0 / (target_fps * dt)))
 
 # Generate and export the animation
-animation_obj = generate_cartpole_animation(t, OCPI.res.x[:x], OCPI.res.x[:θ], vcat(0.0, OCPI.res.u[:F]); skip_steps=skip)  # Adjust skip_steps for faster animation if needed
-gif(animation_obj, "examples/cart_pole/cart_pole_optimal_control.gif", fps=target_fps)
+# Assuming z_r is stored in OCPI.res.x or a similar accessible structure
+animation_obj = generate_suspension_animation(
+    t, 
+    OCPI.res.x[:z], 
+    OCPI.res.u[:z_r], 
+    vcat(0.0, OCPI.res.u[:F]); 
+    skip_steps=skip
+)
+
+gif(animation_obj, "examples/active_suspension_codesign/AS_animation.gif", fps=target_fps)

@@ -2,33 +2,38 @@
 function get_SB()
     
 xL = (
-    z = 0.0,
+    z = -50e-3,
     z_dot = -10.0,
 )
 
 
 xU = (
-    z =  1.0,
+    z =  50e-3,
     z_dot = 10.0,
 )
 
+# put also input knowns
 uL = (
-    F = -10.0,
+    F = -1000.0,
+    z_r = -1, # irrelevant since fixed
+    z_r_dot = -1, # irrelevant since fixed
 )
     
 uU = (
-    F = 10.0,
+    F = 1000.0,
+    z_r = 1, # irrelevant since fixed
+    z_r_dot = 1, # irrelevant since fixed
 )
 
 pL = (
-    k = 1000.0,
-    c = 100.0,
+    k = 0.0,
+    c = 0.0,
 )
 
 
 pU = (
-    k = 5000.0,
-    c = 500.0,
+    k = 40000.0,
+    c = 5000.0,
 )
 
 
@@ -43,12 +48,15 @@ Bounds = (
 
 
 x = (
-    z = 0.5,
-    z_dot = 0.0,
+    z = 1.0,
+    z_dot = 1.0,
 )
 
+# put also input knowns
 u = (
-    F = 10.0,
+    F = 1000.0,
+    z_r = 1.0, # irrelevant since fixed
+    z_r_dot = 1.0, # irrelevant since fixed
 )
 
 dx = (          # state derivative scales
@@ -57,8 +65,8 @@ dx = (          # state derivative scales
 )
 
 p = (
-    k = 1000.0,
-    c = 100.0,
+    k = 40000.0,
+    c = 5000.0,
 )
 
 
